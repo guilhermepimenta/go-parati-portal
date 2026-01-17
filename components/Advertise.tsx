@@ -16,12 +16,42 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         message: ''
     });
 
+    // Phone Mask helper
+    const formatPhone = (value: string) => {
+        const numbers = value.replace(/\D/g, '');
+        const limit = numbers.slice(0, 11); // Limit to 11 digits
+
+        if (limit.length <= 2) return limit;
+        if (limit.length <= 7) return `(${limit.slice(0, 2)}) ${limit.slice(2)}`;
+        return `(${limit.slice(0, 2)}) ${limit.slice(2, 7)}-${limit.slice(7)}`;
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        let value = e.target.value;
+
+        if (e.target.name === 'phone') {
+            value = formatPhone(value);
+        }
+
+        setFormData({ ...formData, [e.target.name]: value });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            alert('Por favor, insira um email válido.');
+            return;
+        }
+
+        const phoneDigits = formData.phone.replace(/\D/g, '');
+        if (phoneDigits.length < 10) {
+            alert('Por favor, insira um telefone válido com DDD (mínimo 10 números).');
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -185,6 +215,7 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     onChange={handleChange}
                                     required
                                     type="tel"
+                                    maxLength={15}
                                     className="w-full bg-slate-50 border-2 border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl py-3 px-4 outline-none transition-all font-medium text-slate-700"
                                     placeholder="(00) 00000-0000"
                                 />
