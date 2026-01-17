@@ -1,0 +1,8 @@
+
+{
+  "name": "Go Parati Portal",
+  "description": "A comprehensive tourism, history, and adventure portal for Paraty, Brazil, featuring local business discovery and real-time distance tracking.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
