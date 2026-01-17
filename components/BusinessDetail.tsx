@@ -19,7 +19,11 @@ interface Review {
   date: string;
 }
 
-// ... (BusinessDetailProps remain)
+interface BusinessDetailProps {
+  business: Business;
+  userLocation: UserLocation | null;
+  onBack: () => void;
+}
 
 const BusinessDetail: React.FC<BusinessDetailProps> = ({ business, userLocation, onBack }) => {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -32,6 +36,21 @@ const BusinessDetail: React.FC<BusinessDetailProps> = ({ business, userLocation,
   const [newReviewName, setNewReviewName] = useState('');
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  // Gallery/Lightbox state
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const images = [business.image_url, ...(business.gallery || [])].filter(Boolean);
+
+  const distance = userLocation
+    ? calculateDistance(userLocation.lat, userLocation.lng, business.location.lat, business.location.lng)
+    : null;
+
+  // Contact Info
+  const contactPhone = "+55 (24) 3371-1234";
+  const contactEmail = "contato@goparaty.com.br";
+  const contactWebsite = "www.goparaty.com.br";
 
   // Fetch Reviews from Supabase
   useEffect(() => {
@@ -59,7 +78,99 @@ const BusinessDetail: React.FC<BusinessDetailProps> = ({ business, userLocation,
     fetchReviews();
   }, [business.id]);
 
-  // ... (rest of code) ...
+  // Handle Connectivity Changes
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Lightbox Navigation Functions
+  const nextImage = useCallback((e?: React.MouseEvent | KeyboardEvent) => {
+    e?.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  }, [images.length]);
+
+  const prevImage = useCallback((e?: React.MouseEvent | KeyboardEvent) => {
+    e?.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  const closeLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
+    document.body.style.overflow = 'unset';
+  }, []);
+
+  // Keyboard Support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isLightboxOpen) return;
+      if (e.key === 'ArrowRight') nextImage();
+      if (e.key === 'ArrowLeft') prevImage();
+      if (e.key === 'Escape') closeLightbox();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen, nextImage, prevImage, closeLightbox]);
+
+  // Map Initialization
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      attributionControl: false,
+      fadeAnimation: true,
+      markerZoomAnimation: true,
+      keyboard: true
+    }).setView([business.location.lat, business.location.lng], 15);
+
+    mapInstance.current = map;
+    L.tileLayer(tileUrl, { maxZoom: 19, crossOrigin: true }).addTo(map);
+
+    const businessIcon = L.divIcon({
+      className: 'custom-business-icon',
+      html: `<div role="img" aria-label="Localização de ${business.name}" style="background-color: #0284c7; width: 40px; height: 40px; border-radius: 50%; border: 4px solid white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); display: flex; align-items: center; justify-content: center; color: white;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+
+    const bMarker = L.marker([business.location.lat, business.location.lng], {
+      icon: businessIcon,
+      alt: `Marcador de mapa para ${business.name}`
+    }).addTo(map);
+
+    bMarker.bindPopup(`
+      <div style="min-width: 150px; padding: 5px;">
+        <h4 style="margin: 0; font-weight: 800; color: #0f172a;">${business.name}</h4>
+        <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b;">${business.location.address}</p>
+      </div>
+    `).openPopup();
+
+    if (userLocation) {
+      const userIcon = L.divIcon({
+        className: 'custom-user-icon',
+        html: `<div role="img" aria-label="Sua localização atual" style="background-color: white; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #0284c7; box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.2); display: flex; align-items: center; justify-content: center;"><div style="width: 6px; height: 6px; background-color: #0284c7; border-radius: 50%;"></div></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+      L.marker([userLocation.lat, userLocation.lng], {
+        icon: userIcon,
+        alt: "Sua localização"
+      }).addTo(map);
+    }
+
+    return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
+  }, [business, userLocation]);
 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
