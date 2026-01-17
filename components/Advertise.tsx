@@ -1,18 +1,51 @@
 
 import React, { useState } from 'react';
 import { Mail, Phone, Send, CheckCircle, ArrowRight, Star, TrendingUp, Users } from 'lucide-react';
+import { supabase } from '../supabase';
 
 export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // Form State
+    const [formData, setFormData] = useState({
+        name: '',
+        businessName: '',
+        email: '',
+        phone: '',
+        message: ''
+    });
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setLoading(false);
-        setSubmitted(true);
+
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .insert([
+                    {
+                        name: formData.name,
+                        business_name: formData.businessName,
+                        email: formData.email,
+                        phone: formData.phone,
+                        message: formData.message
+                    }
+                ]);
+
+            if (error) throw error;
+
+            setSubmitted(true);
+        } catch (error) {
+            console.error('Error submitting lead:', error);
+            alert('Erro ao enviar solicitação. Tente novamente.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (submitted) {
@@ -108,6 +141,9 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Responsável</label>
                             <input
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
                                 required
                                 type="text"
                                 className="w-full bg-slate-50 border-2 border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl py-3 px-4 outline-none transition-all font-medium text-slate-700"
@@ -118,6 +154,9 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Estabelecimento</label>
                             <input
+                                name="businessName"
+                                value={formData.businessName}
+                                onChange={handleChange}
                                 required
                                 type="text"
                                 className="w-full bg-slate-50 border-2 border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl py-3 px-4 outline-none transition-all font-medium text-slate-700"
@@ -129,6 +168,9 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">Email</label>
                                 <input
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
                                     required
                                     type="email"
                                     className="w-full bg-slate-50 border-2 border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl py-3 px-4 outline-none transition-all font-medium text-slate-700"
@@ -138,6 +180,9 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">Telefone / WhatsApp</label>
                                 <input
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleChange}
                                     required
                                     type="tel"
                                     className="w-full bg-slate-50 border-2 border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl py-3 px-4 outline-none transition-all font-medium text-slate-700"
@@ -149,6 +194,9 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-2">Mensagem (Opcional)</label>
                             <textarea
+                                name="message"
+                                value={formData.message}
+                                onChange={handleChange}
                                 rows={3}
                                 className="w-full bg-slate-50 border-2 border-slate-200 focus:border-sky-500 focus:bg-white rounded-xl py-3 px-4 outline-none transition-all font-medium text-slate-700 resize-none"
                                 placeholder="Conte um pouco sobre seu negócio..."
