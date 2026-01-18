@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Mail, Phone, Send, CheckCircle, ArrowRight, Star, TrendingUp, Users } from 'lucide-react';
-import { supabase } from '../supabase';
+// import { supabase } from '../supabase'; // Used REST for robustness
 
 export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [submitted, setSubmitted] = useState(false);
@@ -39,6 +39,15 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        // Connectivity Check
+        if (!navigator.onLine) {
+            alert('Você parece estar offline. Verifique sua conexão com a internet.');
+            return;
+        }
+
         // Validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
@@ -55,24 +64,34 @@ export const Advertise: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase
-                .from('leads')
-                .insert([
-                    {
-                        name: formData.name,
-                        business_name: formData.businessName,
-                        email: formData.email,
-                        phone: formData.phone,
-                        message: formData.message
-                    }
-                ]);
+            // DIRECT REST API CALL (More robust for this environment)
+            const response = await fetch(`${supabaseUrl}/rest/v1/leads`, {
+                method: 'POST',
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal' // Don't ask for select return (avoids RLS issues)
+                },
+                body: JSON.stringify({
+                    name: formData.name,
+                    business_name: formData.businessName,
+                    email: formData.email,
+                    phone: formData.phone,
+                    message: formData.message
+                })
+            });
 
-            if (error) throw error;
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Erro ${response.status}: ${errorText}`);
+            }
 
             setSubmitted(true);
-        } catch (error) {
-            console.error('Error submitting lead:', error);
-            alert('Erro ao enviar solicitação. Tente novamente.');
+
+        } catch (error: any) {
+            console.error('Submission error:', error);
+            alert(`Erro ao enviar: ${error.message}`);
         } finally {
             setLoading(false);
         }

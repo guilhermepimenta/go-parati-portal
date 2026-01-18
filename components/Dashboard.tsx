@@ -278,15 +278,50 @@ const Dashboard: React.FC<DashboardProps> = ({
   }
 
 
+  /* FETCH LEADS (Robust REST API with LocalStorage Token) */
   const fetchLeads = async () => {
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      if (error) throw error;
+      // GET TOKEN FROM LOCALSTORAGE (Matching auth.ts logic)
+      const projectId = new URL(supabaseUrl).hostname.split('.')[0];
+      const storageKey = `sb-${projectId}-auth-token`;
+      const sessionStr = localStorage.getItem(storageKey);
+      let token = null;
+
+      if (sessionStr) {
+        try {
+          const session = JSON.parse(sessionStr);
+          if (session.access_token) {
+            token = session.access_token;
+          }
+        } catch (e) {
+          console.error('Error parsing session:', e);
+        }
+      }
+
+      if (!token) {
+        // Fallback to direct auth (sometimes works when localstorage is weird)
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token;
+      }
+
+      if (!token) return;
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/leads?select=*&order=created_at.desc`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
       setLeadsList(data || []);
+
     } catch (error) {
       console.error('Error fetching leads:', error);
     }
