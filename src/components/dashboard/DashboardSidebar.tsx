@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Store, Users, FileCheck, Calendar, Settings, LogOut,
-    MapPin, List, Mail, ChevronRight
+    MapPin, List, Mail, ChevronRight, BarChart3
 } from 'lucide-react';
 import Logo from '../Logo';
 import { User } from '../../types';
