@@ -1,0 +1,89 @@
+{
+    "hero": {
+        "greeting_morning": "Good morning, Explorer.",
+        "sub_morning": "The best caiçara breakfast awaits you.",
+        "greeting_afternoon": "Sun & History.",
+        "sub_afternoon": "Secret beaches or a walk through the Center?",
+        "greeting_evening": "The Night Promisses.",
+        "sub_evening": "Live music, drinks and unique gastronomy.",
+        "greeting_default": "Escape the Obvious.",
+        "sub_default": "Discover the Real Paraty.",
+        "subtitle_2": "The best experiences and secrets that <0>only locals know</0>.",
+        "search_placeholder": "What are you looking for?",
+        "search_button": "Search",
+        "location_title": "Discover what's around you",
+        "location_desc": "Go Paraty uses your geolocation to suggest the nearest attractions and businesses. Don't waste time planning complex routes.",
+        "location_button": "Enable Location",
+        "curator_title": "The Digital Curator of Paraty",
+        "curator_desc": "Smart Itineraries based on <0>Geolocation</0> and <1>Real Weather</1>. We choose the best moment for you."
+    },
+    "filters": {
+        "title_home": "Where to go in Paraty",
+        "title_explore": "Explore All",
+        "title_history": "Historical Heritage",
+        "title_adventure": "Adventure & Nature",
+        "count_text": "{{count}} experiences found",
+        "near_me": "near you",
+        "open_now": "Open Now",
+        "clear_filters": "Clear Filters",
+        "no_results": "No results found",
+        "no_results_desc": "Try adjusting your filters or search terms.",
+        "clear_all": "Clear all filters"
+    },
+    "categories": {
+        "hospedagem": "Lodging",
+        "comercio": "Shopping",
+        "gastronomia": "Gastronomy",
+        "pontos_turisticos": "Sights",
+        "servicos": "Services",
+        "eventos": "Events",
+        "historia": "History",
+        "aventura": "Adventure"
+    },
+    "agent": {
+        "header_parked": "Just parked?",
+        "body_buy": "Buy your parking ticket here quickly, no need to find a kiosk!"
+    },
+    "pwa": {
+        "update_available": "Update Available",
+        "update_desc": "A new version of Go Paraty is ready. Click refresh to see what's new.",
+        "offline_ready": "App Ready Offline",
+        "offline_desc": "Content is cached! You can now explore Paraty even without signal.",
+        "refresh_button": "Refresh Now"
+    },
+    "common": {
+        "menu": "Menu",
+        "back": "Back",
+        "close": "Close"
+    },
+    "totems": {
+        "title": "Avoid Fines: Park Easily",
+        "desc": "Find the nearest totem in 1 click.",
+        "button_locate": "Locate Totem",
+        "button_collapse": "Collapse"
+    },
+    "nav": {
+        "home": "Home",
+        "explore": "Explore",
+        "history": "History",
+        "adventure": "Adventure",
+        "totems": "Totems",
+        "culture": "Culture",
+        "trails": "Trails",
+        "skip_lines": "Skip Lines"
+    },
+    "footer": {
+        "description": "Made by those who love Paraty, for those who want to love it too. Rediscover the city with the eyes of a local.",
+        "explore": "Explore",
+        "totems": "Paraty Totems",
+        "support_admin": "Support & Admin",
+        "admin_panel": "Control Panel",
+        "advertise": "Advertise with us",
+        "help_center": "Help Center",
+        "terms": "Terms of Use",
+        "privacy": "Privacy Policy",
+        "contact": "Contact",
+        "responsible_tourism": "Responsible Tourism Seal",
+        "made_with_love": "Developed with ❤️ for Paraty"
+    }
+}

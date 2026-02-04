@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* Import Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
+@theme {
+  /* Typography - Clean & Consistent */
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Background & Surface (Ice & Snow System) */
+  --color-canvas: #F0F2F5;
+  /* Ice gray - subtle contrast */
+  --color-surface: #FFFFFF;
+  /* Pure white - cards */
+  --color-surface-hover: #FAFBFC;
+  /* Hover state */
+
+  /* Text Hierarchy (Airbnb-inspired) */
+  --color-ink: #222222;
+  /* Primary text */
+  --color-ink-medium: #484848;
+  /* Subtitles */
+  --color-ink-light: #717171;
+  /* Secondary text */
+  --color-ink-subtle: #B0B0B0;
+  /* Placeholders */
+
+  /* Brand Accent - Airbnb Rausch */
+  --color-coral: #FF385C;
+  /* Primary action */
+  --color-coral-hover: #E00B41;
+  /* Hover state */
+  --color-coral-light: #FFE8ED;
+  /* Light backgrounds */
+
+  /* Functional Colors */
+  --color-ocean: #0073E6;
+  /* Maps/location */
+  --color-emerald: #00A699;
+  /* Success/nature */
+  --color-amber: #FFB400;
+  /* Warnings */
+
+  /* Borders & Dividers (Defined Lines) */
+  --color-border: #DDDDDD;
+  /* Visible borders */
+  --color-border-light: #EBEBEB;
+  /* Subtle separators */
+
+  /* Shadows (Floating Effect) */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 16px 32px rgba(0, 0, 0, 0.12);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+  /* Border Radius (Moderate, not extreme) */
+  --border-radius-card: 16px;
+  /* Airbnb standard */
+  --border-radius-button: 8px;
+}
+
+@layer base {
+  body {
+    @apply bg-canvas text-ink antialiased font-sans;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-serif text-ink font-bold;
+  }
+}

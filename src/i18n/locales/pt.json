@@ -1,0 +1,89 @@
+{
+    "hero": {
+        "greeting_morning": "Bom dia, Explorador.",
+        "sub_morning": "O melhor café da manhã caiçara te espera.",
+        "greeting_afternoon": "Sol & História.",
+        "sub_afternoon": "Praias secretas ou um passeio pelo Centro?",
+        "greeting_evening": "A Noite Promete.",
+        "sub_evening": "Música ao vivo, drinks e gastronomia única.",
+        "greeting_default": "Fuja do Óbvio.",
+        "sub_default": "Descubra a Real Paraty.",
+        "subtitle_2": "As melhores experiências e segredos que <0>só os locais conhecem</0>.",
+        "search_placeholder": "O que busca?",
+        "search_button": "Buscar",
+        "location_title": "Descubra o que está ao seu redor",
+        "location_desc": "O Go Paraty utiliza sua geolocalização para sugerir as atrações e comércios mais próximos. Não perca tempo planejando rotas complexas.",
+        "location_button": "Ativar Localização",
+        "curator_title": "O Curador Digital de Paraty",
+        "curator_desc": "Roteiros Inteligentes baseados em <0>Geolocalização</0> e <1>Clima Real</1>. Nós escolhemos o melhor momento para você."
+    },
+    "filters": {
+        "title_home": "Onde ir em Paraty",
+        "title_explore": "Descubra o Inédito",
+        "title_history": "Patrimônio Histórico",
+        "title_adventure": "Aventura e Natureza",
+        "count_text": "{{count}} experiências encontradas",
+        "near_me": "perto de você",
+        "open_now": "Aberto Agora",
+        "clear_filters": "Limpar Filtros",
+        "no_results": "Nenhum resultado encontrado",
+        "no_results_desc": "Tente ajustar seus filtros ou termos de pesquisa.",
+        "clear_all": "Limpar todos os filtros"
+    },
+    "categories": {
+        "hospedagem": "Hospedagem",
+        "comercio": "Comércio",
+        "gastronomia": "Gastronomia",
+        "pontos_turisticos": "Pontos Turísticos",
+        "servicos": "Serviços",
+        "eventos": "Eventos",
+        "historia": "História",
+        "aventura": "Aventura"
+    },
+    "agent": {
+        "header_parked": "Acabou de estacionar?",
+        "body_buy": "Compre seu Rotativo por aqui rapidinho, sem procurar totem e sem baixar o app!"
+    },
+    "pwa": {
+        "update_available": "Atualização Disponível",
+        "update_desc": "Uma nova versão do Go Paraty está pronta. Clique em atualizar para carregar as novidades.",
+        "offline_ready": "App Pronto para Uso Offline",
+        "offline_desc": "O conteúdo foi salvo e agora você pode explorar Paraty mesmo sem internet!",
+        "refresh_button": "Atualizar Agora"
+    },
+    "common": {
+        "menu": "Menu",
+        "back": "Voltar",
+        "close": "Fechar"
+    },
+    "totems": {
+        "title": "Multa Nunca Mais: O Segredo do Estacionamento",
+        "desc": "Encontre o totem mais próximo em 1 clique.",
+        "button_locate": "Localizar Totem",
+        "button_collapse": "Recolher"
+    },
+    "nav": {
+        "home": "Início",
+        "explore": "Descobrir",
+        "history": "História",
+        "adventure": "Aventura",
+        "totems": "Totens",
+        "culture": "Cultura",
+        "trails": "Trilhas",
+        "skip_lines": "Evite Filas"
+    },
+    "footer": {
+        "description": "Feito por quem ama Paraty. Tem um negócio incrível? Não deixe ele escondido. Anuncie aqui.",
+        "explore": "Descubra",
+        "totems": "Totens Paraty Rotativo",
+        "support_admin": "Suporte & Admin",
+        "admin_panel": "Painel de Controle",
+        "advertise": "Quero Anunciar",
+        "help_center": "Central de Ajuda",
+        "terms": "Termos de Uso",
+        "privacy": "Privacidade",
+        "contact": "Contato",
+        "responsible_tourism": "Selo Turismo Responsável",
+        "made_with_love": "Desenvolvido com ❤️ para Paraty"
+    }
+}

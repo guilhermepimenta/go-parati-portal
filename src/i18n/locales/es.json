@@ -1,0 +1,81 @@
+{
+    "hero": {
+        "greeting_morning": "Buenos días, Explorador.",
+        "sub_morning": "El mejor desayuno caiçara te espera.",
+        "greeting_afternoon": "Sol e Historia.",
+        "sub_afternoon": "¿Playas secretas o un paseo por el Centro?",
+        "greeting_evening": "La Noche Promete.",
+        "sub_evening": "Música en vivo, bebidas y gastronomía única.",
+        "greeting_default": "Escapa de lo Obvio.",
+        "sub_default": "Descubre la Verdadera Paraty.",
+        "subtitle_2": "Las mejores experiencias y secretos que <0>solo los locales conocen</0>.",
+        "search_placeholder": "¿Qué buscas?",
+        "search_button": "Buscar",
+        "location_title": "Descubre lo que hay a tu alrededor",
+        "location_desc": "Go Paraty utiliza tu geolocalización para sugerir las atracciones y comercios más cercanos. No pierdas tiempo planificando rutas complejas.",
+        "location_button": "Activar Ubicación",
+        "curator_title": "El Curador Digital de Paraty",
+        "curator_desc": "Itinerarios Inteligentes basados en <0>Geolocalización</0> y <1>Clima Real</1>. Elegimos el mejor momento para ti."
+    },
+    "filters": {
+        "title_home": "Dónde ir en Paraty",
+        "title_explore": "Explorar Todo",
+        "title_history": "Patrimonio Histórico",
+        "title_adventure": "Aventura y Naturaleza",
+        "count_text": "{{count}} experiencias encontradas",
+        "near_me": "cerca de ti",
+        "open_now": "Abierto Ahora",
+        "clear_filters": "Limpiar Filtros",
+        "no_results": "No se encontraron resultados",
+        "no_results_desc": "Intenta ajustar tus filtros o términos de búsqueda.",
+        "clear_all": "Limpiar todos los filtros"
+    },
+    "categories": {
+        "hospedagem": "Alojamiento",
+        "comercio": "Comercio",
+        "gastronomia": "Gastronomía",
+        "pontos_turisticos": "Puntos Turísticos",
+        "servicos": "Servicios",
+        "eventos": "Eventos",
+        "historia": "Historia",
+        "aventura": "Aventura"
+    },
+    "agent": {
+        "header_parked": "¿Acabas de aparcar?",
+        "body_buy": "¡Compra tu ticket de estacionamiento aquí rápido, sin buscar tótem!"
+    },
+    "common": {
+        "menu": "Menú",
+        "back": "Volver"
+    },
+    "totems": {
+        "title": "Evita Multas: Estaciona Fácil",
+        "desc": "Encuentra el tótem más cercano en 1 clic.",
+        "button_locate": "Localizar Tótem",
+        "button_collapse": "Contraer"
+    },
+    "nav": {
+        "home": "Inicio",
+        "explore": "Explorar",
+        "history": "Historia",
+        "adventure": "Aventura",
+        "totems": "Tótems",
+        "culture": "Cultura",
+        "trails": "Senderos",
+        "skip_lines": "Evita Filas"
+    },
+    "footer": {
+        "description": "Hecho por quienes aman Paraty, para quienes quieren amarla también. Redescubre la ciudad con ojos de local.",
+        "explore": "Explorar",
+        "totems": "Tótems Paraty",
+        "support_admin": "Soporte y Admin",
+        "admin_panel": "Panel de Control",
+        "advertise": "Anúnciate aquí",
+        "help_center": "Centro de Ayuda",
+        "terms": "Términos de Uso",
+        "privacy": "Privacidad",
+        "contact": "Contacto",
+        "responsible_tourism": "Sello Turismo Responsable",
+        "made_with_love": "Desarrollado con ❤️ para Paraty"
+    }
+}
