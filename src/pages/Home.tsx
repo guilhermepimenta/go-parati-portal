@@ -242,7 +242,7 @@ const Home: React.FC<HomeProps> = ({
             <EmergencyBanner />
 
             {initialView === 'home' && (
-                <section className="relative min-h-screen lg:min-h-[600px] xl:min-h-[720px] lg:h-[85vh] flex items-center justify-center overflow-hidden -mt-24 sm:-mt-28 md:-mt-32">
+                <section className="relative min-h-screen lg:min-h-[600px] xl:min-h-[720px] lg:h-[85vh] flex items-start justify-center overflow-hidden -mt-24 sm:-mt-28 md:-mt-32 pt-28 sm:pt-32 md:pt-40 lg:pt-48">
                     <div className="absolute inset-0 z-0">
                         {isLoading ? (
                             <div className="w-full h-full bg-slate-900/50 animate-pulse" />
@@ -259,13 +259,13 @@ const Home: React.FC<HomeProps> = ({
                         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-surface/95"></div>
                     </div>
 
-                    <div className="relative z-10 text-center px-6 max-w-5xl mx-auto pt-32 lg:pt-36 flex flex-col items-center">
+                    <div className="relative z-10 text-center px-6 max-w-5xl mx-auto pt-4 md:pt-8 flex flex-col items-center">
                         <span className="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white text-[10px] md:text-xs font-bold tracking-widest uppercase mb-4 md:mb-6 inline-block shadow-lg font-sans">
                             {t('hero.curator_title')}
                         </span>
 
                         {/* High Contrast Heading */}
-                        <h1 className="text-4xl lg:text-6xl xl:text-8xl font-black text-white mb-6 leading-[1.05] drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] font-serif tracking-tight">
+                        <h1 className="text-4xl lg:text-6xl xl:text-7xl font-black text-white mb-6 leading-[1.05] drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] font-serif tracking-tight">
                             {t(`hero.greeting_${greetingType}`)}<br />
                             <span className={`text-transparent bg-clip-text bg-gradient-to-r ${getGradient(greetingType)} italic pr-4 py-2 drop-shadow-none inline-block leading-normal`}>
                                 {t(`hero.sub_${greetingType}`)}
