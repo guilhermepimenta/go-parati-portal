@@ -242,7 +242,7 @@ const Home: React.FC<HomeProps> = ({
             <EmergencyBanner />
 
             {initialView === 'home' && (
-                <section className="relative min-h-screen lg:min-h-[600px] xl:min-h-[720px] lg:h-[85vh] flex items-start justify-center overflow-hidden -mt-24 sm:-mt-28 md:-mt-32 pt-28 sm:pt-32 md:pt-40 lg:pt-48">
+                <section className="relative min-h-screen lg:min-h-[800px] xl:min-h-[900px] flex items-center justify-center -mt-24 sm:-mt-28 md:-mt-32 pt-24 sm:pt-32">
                     <div className="absolute inset-0 z-0">
                         {isLoading ? (
                             <div className="w-full h-full bg-slate-900/50 animate-pulse" />
