@@ -1570,6 +1570,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
+          ) : activeMenu === 'analytics' ? (
+            <AnalyticsOverview />
           ) : activeMenu === 'categories' ? (
             <CategoryManager
               categories={categories}
@@ -1629,6 +1631,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       users: 'Usuários',
                       leads: 'Propostas',
                       approvals: 'Aprovações',
+                      analytics: 'Analytics & BI',
                       settings: 'Configurações'
                     }[activeMenu] || 'Painel'}
                   </h1>
