@@ -73,3 +73,8 @@
     @apply font-serif text-ink font-bold;
   }
 }
+
+.totem-map .leaflet-top .leaflet-routing-container,
+.navigation-modal-map .leaflet-top .leaflet-routing-container {
+  display: none;
+}

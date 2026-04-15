@@ -42,6 +42,19 @@ const App: React.FC = () => {
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
 
+  const getLocationErrorMessage = (error: GeolocationPositionError) => {
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        return 'Permissao de localizacao negada. Ative no navegador para tracar a rota.';
+      case error.POSITION_UNAVAILABLE:
+        return 'Nao foi possivel obter sua localizacao agora. Verifique GPS/rede e tente novamente.';
+      case error.TIMEOUT:
+        return 'Tempo esgotado para obter localizacao. Tente novamente em alguns segundos.';
+      default:
+        return 'Erro ao obter localizacao. Tente novamente.';
+    }
+  };
+
   useEffect(() => {
     // We still fetch all businesses in App to support the BusinessDetail lookup 
     // without refactoring BusinessDetail entirely yet.
@@ -81,15 +94,21 @@ const App: React.FC = () => {
             lng: position.coords.longitude
           });
         },
-        (err) => console.error("Loc error", err),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        (err) => {
+          console.error('Loc error', err);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
       );
     }
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, []);
 
   const requestLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      alert('Seu navegador nao suporta geolocalizacao.');
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({
@@ -97,7 +116,8 @@ const App: React.FC = () => {
           lng: pos.coords.longitude
         });
       },
-      (err) => alert("Location error")
+      (err) => alert(getLocationErrorMessage(err)),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
   };
 
