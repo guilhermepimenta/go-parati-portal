@@ -44,6 +44,8 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   const fallbackRouteRef = useRef<L.Polyline | null>(null);
   const pendingRouteTotemRef = useRef<Totem | null>(null);
   const lastRerouteAtRef = useRef(0);
+  const totemMarkersLayerRef = useRef<L.LayerGroup | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
   const [totems, setTotems] = useState<Totem[]>([]);
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -172,8 +174,9 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
     }
 
     pendingRouteTotemRef.current = null;
-  setIsNavigating(false);
-  setActiveRouteTotem(totem);
+    setSelectedTotem(totem);
+    setIsNavigating(false);
+    setActiveRouteTotem(totem);
 
     const map = mapInstance.current;
     clearActiveRoute();
@@ -287,11 +290,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   }, [drawRouteToTotem, userLocation]);
 
   useEffect(() => {
-    if (!mapRef.current || totems.length === 0) return;
-
-    if (mapInstance.current) {
-      mapInstance.current.remove();
-    }
+    if (!mapRef.current || mapInstance.current) return;
 
     const map = L.map(mapRef.current, {
       zoomControl: true,
@@ -300,6 +299,24 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
 
     mapInstance.current = map;
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    totemMarkersLayerRef.current = L.layerGroup().addTo(map);
+
+    return () => {
+      clearActiveRoute();
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+      totemMarkersLayerRef.current = null;
+      userMarkerRef.current = null;
+    };
+  }, [clearActiveRoute]);
+
+  useEffect(() => {
+    if (!mapInstance.current || !totemMarkersLayerRef.current) return;
+
+    const markersLayer = totemMarkersLayerRef.current;
+    markersLayer.clearLayers();
 
     totems.forEach(totem => {
       const isOnlineStatus = totem.status === 'online';
@@ -337,7 +354,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
         iconAnchor: [18, 18]
       });
 
-      const marker = L.marker([totem.location.lat, totem.location.lng], { icon: totemIcon }).addTo(map);
+      const marker = L.marker([totem.location.lat, totem.location.lng], { icon: totemIcon }).addTo(markersLayer);
       marker.bindPopup(`
         <div style="font-family: 'Inter', sans-serif; padding: 8px; min-width: 160px;">
           <strong style="display: block; margin-bottom: 4px; font-size: 14px; color: #0f172a;">${totem.name}</strong>
@@ -359,26 +376,37 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
         </div>
       `);
     });
+  }, [totems]);
 
-    if (userLocation) {
-      const userIcon = L.divIcon({
-        className: 'user-marker',
-        html: `<div style="background-color: white; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #0284c7; box-shadow: 0 0 15px rgba(2, 132, 199, 0.5);"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      });
-      L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(map);
-      map.setView([userLocation.lat, userLocation.lng], 16);
+  useEffect(() => {
+    if (!mapInstance.current) return;
+
+    if (!userLocation) {
+      if (userMarkerRef.current) {
+        mapInstance.current.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      return;
     }
 
-    return () => {
-      clearActiveRoute();
-      if (mapInstance.current) {
-        mapInstance.current.remove();
-        mapInstance.current = null;
-      }
-    };
-  }, [clearActiveRoute, userLocation, totems]);
+    const userIcon = L.divIcon({
+      className: 'user-marker',
+      html: `<div style="background-color: white; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #0284c7; box-shadow: 0 0 15px rgba(2, 132, 199, 0.5);"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+
+    const userLatLng: L.LatLngExpression = [userLocation.lat, userLocation.lng];
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng(userLatLng);
+    } else {
+      userMarkerRef.current = L.marker(userLatLng, { icon: userIcon }).addTo(mapInstance.current);
+    }
+
+    if (!activeRouteTotem && !activeRouteData) {
+      mapInstance.current.setView([userLocation.lat, userLocation.lng], 16);
+    }
+  }, [activeRouteData, activeRouteTotem, userLocation]);
 
   const handleFocusTotem = (totem: Totem) => {
     setSelectedTotem(totem);
@@ -389,6 +417,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
 
   const openDirections = (e: React.MouseEvent, totem: Totem) => {
     e.stopPropagation();
+    setSelectedTotem(totem);
     drawRouteToTotem(totem);
   };
 
@@ -432,8 +461,8 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                   </div>
                 </div>
               </div>
-            ) : (selectedTotem ?? nearestTotem) && (() => {
-              const cardTotem = (selectedTotem ?? nearestTotem)!;
+            ) : (activeRouteTotem ?? selectedTotem ?? nearestTotem) && (() => {
+              const cardTotem = (activeRouteTotem ?? selectedTotem ?? nearestTotem)!;
               return (
               <div key={cardTotem.id} className={`p-8 rounded-3xl shadow-xl text-white relative overflow-hidden group transition-all duration-500 ${cardTotem.status === 'online' ? 'bg-sky-600 shadow-sky-600/20' : 'bg-slate-600 shadow-slate-600/20'}`}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-white/20 transition-colors" />
@@ -485,9 +514,10 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                   return (
                     <div
                       key={totem.id}
+                      onClick={() => handleFocusTotem(totem)}
                       className="w-full flex items-center justify-between p-3 md:p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-white hover:border-sky-200 hover:shadow-lg hover:shadow-sky-500/5 transition-all group"
                     >
-                      <div className="flex items-center gap-3 overflow-hidden" onClick={() => handleFocusTotem(totem)}>
+                      <div className="flex items-center gap-3 overflow-hidden">
                         <div className={`p-2.5 rounded-xl transition-colors duration-300 flex-shrink-0 ${isOnlineStatus ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 group-hover:bg-rose-100'}`}>
                           {isOnlineStatus ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                         </div>
