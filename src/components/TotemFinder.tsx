@@ -48,6 +48,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [activeRouteTotem, setActiveRouteTotem] = useState<Totem | null>(null);
+  const [selectedTotem, setSelectedTotem] = useState<Totem | null>(null);
   const [activeRouteData, setActiveRouteData] = useState<NavigationRouteData | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [remainingDistance, setRemainingDistance] = useState<number | null>(null);
@@ -380,6 +381,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   }, [clearActiveRoute, userLocation, totems]);
 
   const handleFocusTotem = (totem: Totem) => {
+    setSelectedTotem(totem);
     if (mapInstance.current) {
       mapInstance.current.setView([totem.location.lat, totem.location.lng], 18);
     }
@@ -430,35 +432,37 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                   </div>
                 </div>
               </div>
-            ) : nearestTotem && (
-              <div className={`p-8 rounded-3xl shadow-xl text-white relative overflow-hidden group transition-all duration-500 ${nearestTotem.status === 'online' ? 'bg-sky-600 shadow-sky-600/20' : 'bg-slate-600 shadow-slate-600/20'}`}>
+            ) : (selectedTotem ?? nearestTotem) && (() => {
+              const cardTotem = (selectedTotem ?? nearestTotem)!;
+              return (
+              <div key={cardTotem.id} className={`p-8 rounded-3xl shadow-xl text-white relative overflow-hidden group transition-all duration-500 ${cardTotem.status === 'online' ? 'bg-sky-600 shadow-sky-600/20' : 'bg-slate-600 shadow-slate-600/20'}`}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-white/20 transition-colors" />
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-6">
                     <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-xl">
-                      {nearestTotem.status === 'online' ? <Zap className="w-6 h-6 fill-current" /> : <ZapOff className="w-6 h-6" />}
+                      {cardTotem.status === 'online' ? <Zap className="w-6 h-6 fill-current" /> : <ZapOff className="w-6 h-6" />}
                     </div>
-                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full backdrop-blur-md border ${nearestTotem.status === 'online' ? 'bg-emerald-500/20 border-emerald-400/30' : 'bg-rose-500/20 border-rose-400/30'}`}>
-                      <div className={`w-2 h-2 rounded-full ${nearestTotem.status === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
+                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full backdrop-blur-md border ${cardTotem.status === 'online' ? 'bg-emerald-500/20 border-emerald-400/30' : 'bg-rose-500/20 border-rose-400/30'}`}>
+                      <div className={`w-2 h-2 rounded-full ${cardTotem.status === 'online' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></div>
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        {nearestTotem.status === 'online' ? 'Operacional' : 'Em Manutenção'}
+                        {cardTotem.status === 'online' ? 'Operacional' : 'Em Manutenção'}
                       </span>
                     </div>
                   </div>
-                  <h3 className="text-2xl font-bold mb-1">{nearestTotem.name}</h3>
+                  <h3 className="text-2xl font-bold mb-1">{cardTotem.name}</h3>
                   <p className="text-white/80 text-sm mb-6 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> {nearestTotem.location.address}
+                    <MapPin className="w-3 h-3" /> {cardTotem.location.address}
                   </p>
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-[10px] font-bold uppercase text-white/60 mb-1 tracking-tighter">Distância Estimada</p>
-                      <p className="text-2xl md:text-4xl font-black tracking-tighter">{formatDistance(calculateDistance(userLocation.lat, userLocation.lng, nearestTotem.location.lat, nearestTotem.location.lng))}</p>
+                      <p className="text-2xl md:text-4xl font-black tracking-tighter">{formatDistance(calculateDistance(userLocation.lat, userLocation.lng, cardTotem.location.lat, cardTotem.location.lng))}</p>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          drawRouteToTotem(nearestTotem);
+                          drawRouteToTotem(cardTotem);
                         }}
                         className="px-4 py-2 bg-white text-sky-600 font-bold rounded-xl shadow-lg hover:bg-sky-50 transition-all active:scale-90 flex items-center gap-2"
                       >
@@ -468,7 +472,8 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                   </div>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
 
 
