@@ -41,12 +41,12 @@ const Footer: React.FC<FooterProps> = ({ onNavigate, currentUser, onLogin, onOpe
                             {t('footer.description')}
                         </p>
                         <div className="flex gap-4">
-                            <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
+                            <a href="https://www.instagram.com/go.paraty?igsh=ZzkyOGhmdGozNWN1" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
                                 <Instagram className="w-5 h-5 group-hover:text-pink-500" />
-                            </button>
-                            <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
+                            </a>
+                            <a href="https://www.facebook.com/profile.php?id=61572083046676" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
                                 <Facebook className="w-5 h-5 group-hover:text-blue-500" />
-                            </button>
+                            </a>
                             <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors group">
                                 <Youtube className="w-5 h-5 group-hover:text-red-500" />
                             </button>
