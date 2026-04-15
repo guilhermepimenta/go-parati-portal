@@ -5,6 +5,7 @@ import { Star, MapPin, Clock, Phone, Globe, Share2, Heart, ArrowLeft, CheckCircl
 import { Business, UserLocation } from '../types';
 import { calculateDistance, formatDistance, getPriceLevelString } from '../utils';
 import { analytics } from '../services/analytics';
+import MapModal from './MapModal';
 
 // Declare Leaflet (L) as it is loaded via script tag in index.html
 declare const L: any;
@@ -31,6 +32,7 @@ const BusinessDetail: React.FC<BusinessDetailProps> = ({ business, userLocation,
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isNavigationMapOpen, setIsNavigationMapOpen] = useState(false);
 
   // Reviews State
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -536,45 +538,7 @@ const BusinessDetail: React.FC<BusinessDetailProps> = ({ business, userLocation,
 
               <div className="space-y-4">
                 <button
-                  onClick={() => {
-                    if (!userLocation) {
-                      alert('Aguardando sua localização...');
-                      return;
-                    }
-
-                    if (mapInstance.current) {
-                      const map = mapInstance.current;
-
-                      // @ts-ignore
-                      if (L.Routing) {
-                        // @ts-ignore
-                        L.Routing.control({
-                          waypoints: [
-                            L.latLng(userLocation.lat, userLocation.lng),
-                            L.latLng(business.location.lat, business.location.lng)
-                          ],
-                          routeWhileDragging: true,
-                          showAlternatives: true,
-                          lineOptions: {
-                            styles: [{ color: '#0284c7', weight: 6 }]
-                          },
-                          addWaypoints: false,
-                          draggableWaypoints: false,
-                          fitSelectedRoutes: true,
-                          show: false // Hide panel instructions for cleaner UI
-                        }).addTo(map);
-
-                        // Scroll map into view
-                        if (mapRef.current) {
-                          mapRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                      } else {
-                        console.error('Leaflet Routing Machine not loaded');
-                        // Fallback just in case CDN fails
-                        handleOpenExternalMaps();
-                      }
-                    }
-                  }}
+                  onClick={() => setIsNavigationMapOpen(true)}
                   className="w-full py-4 bg-sky-600 text-white font-bold rounded-2xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 hover:bg-sky-700 transition-all active:scale-95 focus:ring-4 focus:ring-sky-500/50 outline-none"
                   aria-label="Traçar rota no Google Maps"
                 >
@@ -624,6 +588,17 @@ const BusinessDetail: React.FC<BusinessDetailProps> = ({ business, userLocation,
           </div>
         </div>
       )}
+
+      <MapModal
+        isOpen={isNavigationMapOpen}
+        onClose={() => setIsNavigationMapOpen(false)}
+        destination={{
+          lat: business.location.lat,
+          lng: business.location.lng,
+          name: business.name,
+          category: business.category
+        }}
+      />
     </div>
   );
 };

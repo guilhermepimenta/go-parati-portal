@@ -1,12 +1,22 @@
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { MapPin, Navigation, Info, Ticket, CheckCircle2, XCircle, ChevronRight, Compass, Zap, ZapOff, ExternalLink, WifiOff } from 'lucide-react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { MapPin, Navigation, Info, Ticket, CheckCircle2, XCircle, Compass, Zap, ZapOff, WifiOff, Play, Square } from 'lucide-react';
 import { UserLocation, Totem } from '../types';
 import { TOTEM_DATA } from '../config/constants';
 import { calculateDistance, formatDistance } from '../utils';
 import { supabase } from '../supabase';
 import L from 'leaflet';
 import 'leaflet-routing-machine';
+import {
+  ensurePtBrRoutingLocale,
+  formatRemainingDistance,
+  formatRemainingTime,
+  getClosestRoutePointIndex,
+  getDistanceFromRouteMeters,
+  getNextInstruction,
+  getRemainingDistanceMeters,
+  NavigationRouteData,
+} from '../lib/navigation';
 
 // Fix for default markers in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -30,9 +40,19 @@ const CACHE_KEY = 'goparaty_totems_cache';
 const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocation }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
+  const routingControlRef = useRef<any>(null);
+  const fallbackRouteRef = useRef<L.Polyline | null>(null);
+  const pendingRouteTotemRef = useRef<Totem | null>(null);
+  const lastRerouteAtRef = useRef(0);
   const [totems, setTotems] = useState<Totem[]>([]);
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [activeRouteTotem, setActiveRouteTotem] = useState<Totem | null>(null);
+  const [activeRouteData, setActiveRouteData] = useState<NavigationRouteData | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [remainingDistance, setRemainingDistance] = useState<number | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [nextInstruction, setNextInstruction] = useState('Siga pela rota destacada');
 
   // Persistence and Sync Logic
   useEffect(() => {
@@ -105,6 +125,165 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   }, [userLocation, totems]);
 
   const nearestTotem = sortedTotems[0];
+
+  const drawApproximateRoute = useCallback((from: L.LatLngExpression, to: L.LatLngExpression) => {
+    if (!mapInstance.current) return;
+
+    if (fallbackRouteRef.current) {
+      mapInstance.current.removeLayer(fallbackRouteRef.current);
+      fallbackRouteRef.current = null;
+    }
+
+    fallbackRouteRef.current = L.polyline([from, to], {
+      color: '#0284c7',
+      weight: 5,
+      opacity: 0.9,
+      dashArray: '8, 10'
+    }).addTo(mapInstance.current);
+  }, []);
+
+  const clearActiveRoute = useCallback(() => {
+    if (!mapInstance.current) return;
+
+    if (routingControlRef.current) {
+      mapInstance.current.removeControl(routingControlRef.current);
+      routingControlRef.current = null;
+    }
+
+    if (fallbackRouteRef.current) {
+      mapInstance.current.removeLayer(fallbackRouteRef.current);
+      fallbackRouteRef.current = null;
+    }
+
+    setActiveRouteData(null);
+    setRemainingDistance(null);
+    setRemainingTime(null);
+    setNextInstruction('Siga pela rota destacada');
+  }, []);
+
+  const drawRouteToTotem = useCallback((totem: Totem) => {
+    if (!mapInstance.current) return;
+
+    if (!userLocation) {
+      pendingRouteTotemRef.current = totem;
+      onRequestLocation();
+      return;
+    }
+
+    pendingRouteTotemRef.current = null;
+  setIsNavigating(false);
+  setActiveRouteTotem(totem);
+
+    const map = mapInstance.current;
+    clearActiveRoute();
+
+    const from = L.latLng(userLocation.lat, userLocation.lng);
+    const to = L.latLng(totem.location.lat, totem.location.lng);
+
+    // Always render an internal route immediately; if OSRM succeeds, this is replaced.
+    drawApproximateRoute(from, to);
+    map.fitBounds([from, to], { padding: [40, 40] });
+
+    const routing = (L as any).Routing;
+    if (!routing?.control) {
+      console.error('Leaflet Routing Machine not loaded');
+      return;
+    }
+
+    ensurePtBrRoutingLocale(routing);
+
+    routingControlRef.current = routing.control({
+      waypoints: [
+        from,
+        to
+      ],
+      router: routing.osrmv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1',
+        timeout: 8000
+      }),
+      routeWhileDragging: false,
+      showAlternatives: true,
+      lineOptions: {
+        styles: [{ color: '#0284c7', opacity: 0.95, weight: 6 }]
+      },
+      addWaypoints: false,
+      draggableWaypoints: false,
+      fitSelectedRoutes: true,
+      show: true,
+      collapsible: false,
+      createMarker: function () { return null; },
+      language: 'pt-BR'
+    }).addTo(map);
+
+    routingControlRef.current.on('routesfound', (event: any) => {
+      const route = event.routes?.[0];
+      if (!route) return;
+
+      if (mapInstance.current && fallbackRouteRef.current) {
+        mapInstance.current.removeLayer(fallbackRouteRef.current);
+        fallbackRouteRef.current = null;
+      }
+
+      setActiveRouteData({
+        coordinates: (route.coordinates || []).map((coordinate: any) => ({ lat: coordinate.lat, lng: coordinate.lng })),
+        instructions: (route.instructions || []).map((instruction: any) => ({
+          index: instruction.index,
+          text: instruction.text,
+          distance: instruction.distance,
+          time: instruction.time
+        })),
+        totalDistanceMeters: route.summary?.totalDistance || 0,
+        totalTimeSeconds: route.summary?.totalTime || 0
+      });
+      setRemainingDistance(route.summary?.totalDistance || null);
+      setRemainingTime(route.summary?.totalTime || null);
+      setNextInstruction(route.instructions?.[0]?.text || 'Siga pela rota destacada');
+    });
+
+    routingControlRef.current.on('routingerror', (error: any) => {
+      console.warn('Routing error:', error);
+      drawApproximateRoute(from, to);
+      map.fitBounds([from, to], { padding: [40, 40] });
+    });
+
+    if (mapRef.current) {
+      mapRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [clearActiveRoute, drawApproximateRoute, onRequestLocation, userLocation]);
+
+  useEffect(() => {
+    if (!isNavigating || !userLocation || !activeRouteData || !activeRouteTotem || !mapInstance.current) return;
+
+    const currentPoint = { lat: userLocation.lat, lng: userLocation.lng };
+    const closestIndex = getClosestRoutePointIndex(activeRouteData.coordinates, currentPoint);
+    const remainingDistanceMeters = getRemainingDistanceMeters(activeRouteData.coordinates, closestIndex);
+    const progressRatio = activeRouteData.totalDistanceMeters > 0
+      ? Math.min(1, Math.max(0, 1 - remainingDistanceMeters / activeRouteData.totalDistanceMeters))
+      : 0;
+
+    setRemainingDistance(remainingDistanceMeters);
+    setRemainingTime(activeRouteData.totalTimeSeconds * (1 - progressRatio));
+    setNextInstruction(getNextInstruction(activeRouteData.instructions, closestIndex));
+    mapInstance.current.panTo([userLocation.lat, userLocation.lng], { animate: true });
+
+    if (remainingDistanceMeters < 35) {
+      setIsNavigating(false);
+      setNextInstruction('Voce chegou ao totem');
+      return;
+    }
+
+    const distanceFromRoute = getDistanceFromRouteMeters(activeRouteData.coordinates, currentPoint);
+    const now = Date.now();
+    if (distanceFromRoute > 80 && now - lastRerouteAtRef.current > 8000) {
+      lastRerouteAtRef.current = now;
+      drawRouteToTotem(activeRouteTotem);
+    }
+  }, [activeRouteData, activeRouteTotem, drawRouteToTotem, isNavigating, userLocation]);
+
+  useEffect(() => {
+    if (!userLocation || !pendingRouteTotemRef.current) return;
+    drawRouteToTotem(pendingRouteTotemRef.current);
+  }, [drawRouteToTotem, userLocation]);
 
   useEffect(() => {
     if (!mapRef.current || totems.length === 0) return;
@@ -191,8 +370,14 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
       map.setView([userLocation.lat, userLocation.lng], 16);
     }
 
-    return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [userLocation, totems]);
+    return () => {
+      clearActiveRoute();
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, [clearActiveRoute, userLocation, totems]);
 
   const handleFocusTotem = (totem: Totem) => {
     if (mapInstance.current) {
@@ -202,8 +387,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
 
   const openDirections = (e: React.MouseEvent, totem: Totem) => {
     e.stopPropagation();
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${totem.location.lat},${totem.location.lng}`;
-    window.open(url, '_blank');
+    drawRouteToTotem(totem);
   };
 
   return (
@@ -274,37 +458,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (mapInstance.current && userLocation) {
-                            const map = mapInstance.current;
-                            // @ts-ignore
-                            if (L.Routing) {
-                              // @ts-ignore
-                              L.Routing.control({
-                                waypoints: [
-                                  L.latLng(userLocation.lat, userLocation.lng),
-                                  L.latLng(nearestTotem.location.lat, nearestTotem.location.lng)
-                                ],
-                                routeWhileDragging: true,
-                                showAlternatives: true,
-                                lineOptions: {
-                                  styles: [{ color: '#ffffff', opacity: 0.9, weight: 6 }]
-                                },
-                                addWaypoints: false,
-                                draggableWaypoints: false,
-                                fitSelectedRoutes: true,
-                                show: false,
-                                createMarker: function () { return null; } // Don't create extra markers
-                              }).addTo(map);
-
-                              // Scroll map into view
-                              if (mapRef.current) {
-                                mapRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              }
-                            } else {
-                              console.error('Leaflet Routing Machine not loaded');
-                              // Fallback if routing fails/not loaded, though we prefer internal only now
-                            }
-                          }
+                          drawRouteToTotem(nearestTotem);
                         }}
                         className="px-4 py-2 bg-white text-sky-600 font-bold rounded-xl shadow-lg hover:bg-sky-50 transition-all active:scale-90 flex items-center gap-2"
                       >
@@ -315,6 +469,8 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                 </div>
               </div>
             )}
+
+
 
             <div className="space-y-4">
               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Pontos de Atendimento</h4>
@@ -356,7 +512,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                         <button
                           onClick={(e) => openDirections(e, totem)}
                           className="p-3 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-600 hover:text-white transition-all active:scale-90"
-                          title="Abrir no Google Maps"
+                          title="Traçar rota no mapa"
                         >
                           <Navigation className="w-4 h-4" />
                         </button>
@@ -368,22 +524,62 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
             </div>
           </div>
 
-          <div className="lg:w-1/2 min-h-[400px] lg:min-h-auto relative">
-            <div className="absolute inset-0 bg-slate-100 rounded-[32px] overflow-hidden shadow-inner border border-slate-200">
-              <div ref={mapRef} className="w-full h-full" />
+          <div className="lg:w-1/2 min-h-[600px] lg:min-h-auto flex flex-col">
+            <div className="totem-map bg-slate-100 rounded-[32px] overflow-hidden shadow-inner border border-slate-200 h-[400px] lg:h-auto lg:flex-1" style={{ minHeight: '400px' }}>
+              <div ref={mapRef} className="w-full h-[400px] lg:h-full" />
             </div>
-            <div className="absolute bottom-6 left-6 right-6 p-4 bg-white/90 backdrop-blur shadow-xl rounded-2xl border border-white/20 z-[10] flex items-center gap-4">
-              <div className="p-3 bg-sky-600 rounded-xl text-white">
-                <Compass className="w-5 h-5 animate-pulse" />
+            
+            {activeRouteTotem && userLocation && (
+              <div className="w-full bg-white border-t border-slate-200 shadow-2xl z-[1000] p-5 max-h-[28vh] overflow-y-auto">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex-1">
+                    <p className="text-[10px] uppercase font-black tracking-[0.18em] text-sky-600">Navegacao ativa</p>
+                    <h4 className="text-lg font-bold text-slate-900 leading-tight">{activeRouteTotem.name}</h4>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border whitespace-nowrap ${isNavigating ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                    {isNavigating ? 'Em trajeto' : 'Pronto'}
+                  </span>
+                </div>
+
+                <p className="text-sm text-slate-600 leading-relaxed min-h-[42px]">{nextInstruction}</p>
+
+                <div className="grid grid-cols-2 gap-3 mt-4 mb-4">
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3 border border-slate-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Restante</p>
+                    <p className="text-sm font-bold text-slate-900">{remainingDistance !== null ? formatRemainingDistance(remainingDistance) : formatDistance(calculateDistance(userLocation.lat, userLocation.lng, activeRouteTotem.location.lat, activeRouteTotem.location.lng))}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3 border border-slate-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tempo</p>
+                    <p className="text-sm font-bold text-slate-900">{remainingTime !== null ? formatRemainingTime(remainingTime) : 'Estimando'}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsNavigating((currentValue) => !currentValue)}
+                  className={`w-full px-5 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 ${isNavigating ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-sky-600 text-white hover:bg-sky-700'}`}
+                >
+                  {isNavigating ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                  {isNavigating ? 'Parar trajeto' : 'Iniciar trajeto'}
+                </button>
               </div>
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Monitoramento em Tempo Real</p>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
-                  <p className="text-sm font-extrabold text-slate-900">{isOnline ? 'Rede de Totens Ativa' : 'Exibindo dados em cache'}</p>
+            )}
+            
+            {!activeRouteTotem && (
+              <div className="w-full bg-white border-t border-slate-200 shadow-lg z-[1000] p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-sky-600 rounded-xl text-white flex-shrink-0">
+                    <Compass className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Status da Rede</p>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
+                      <p className="text-sm font-extrabold text-slate-900 truncate">{isOnline ? 'Rede de Totens Ativa' : 'Exibindo dados em cache'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

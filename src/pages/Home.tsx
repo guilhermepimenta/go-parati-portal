@@ -53,7 +53,7 @@ const Home: React.FC<HomeProps> = ({
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isGoogleCalendarModalOpen, setIsGoogleCalendarModalOpen] = useState(false);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-    const [mapDestination, setMapDestination] = useState<{ lat: number; lng: number } | null>(null);
+    const [mapDestination, setMapDestination] = useState<{ lat: number; lng: number; name?: string; category?: string } | null>(null);
 
     // Fetch Data
     useEffect(() => {

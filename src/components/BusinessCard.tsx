@@ -12,7 +12,7 @@ interface BusinessCardProps {
   business: Business;
   userLocation: UserLocation | null;
   onClick: (id: string) => void;
-  onRouteClick?: (location: { lat: number; lng: number }) => void;
+  onRouteClick?: (location: { lat: number; lng: number; name?: string; category?: string }) => void;
 }
 
 const BusinessCard = React.memo(({ business, userLocation, onClick, onRouteClick }: BusinessCardProps) => {
@@ -108,7 +108,11 @@ const BusinessCard = React.memo(({ business, userLocation, onClick, onRouteClick
               onClick={(e) => {
                 e.stopPropagation();
                 if (onRouteClick) {
-                  onRouteClick(business.location);
+                  onRouteClick({
+                    ...business.location,
+                    name: business.name,
+                    category: business.category
+                  });
                 } else {
                   window.open(`https://www.google.com/maps/dir/?api=1&destination=${business.location.lat},${business.location.lng}`, '_blank');
                 }

@@ -11,9 +11,13 @@ const headers = {
 
 export const api = {
     getBusinesses: async (): Promise<Business[]> => {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/businesses?select=*`, { headers });
-        if (!res.ok) throw new Error('Failed to fetch businesses');
-        return await res.json();
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/businesses?select=*`, { headers });
+            if (!res.ok) return [];
+            return await res.json();
+        } catch {
+            return [];
+        }
     },
 
     getFeaturedEvent: async (): Promise<FeaturedEvent | null> => {
