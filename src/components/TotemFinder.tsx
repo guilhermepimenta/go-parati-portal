@@ -44,6 +44,8 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   const fallbackRouteRef = useRef<L.Polyline | null>(null);
   const pendingRouteTotemRef = useRef<Totem | null>(null);
   const lastRerouteAtRef = useRef(0);
+  const totemMarkersLayerRef = useRef<L.LayerGroup | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
   const [totems, setTotems] = useState<Totem[]>([]);
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -288,11 +290,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
   }, [drawRouteToTotem, userLocation]);
 
   useEffect(() => {
-    if (!mapRef.current || totems.length === 0) return;
-
-    if (mapInstance.current) {
-      mapInstance.current.remove();
-    }
+    if (!mapRef.current || mapInstance.current) return;
 
     const map = L.map(mapRef.current, {
       zoomControl: true,
@@ -301,6 +299,24 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
 
     mapInstance.current = map;
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+    totemMarkersLayerRef.current = L.layerGroup().addTo(map);
+
+    return () => {
+      clearActiveRoute();
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+      totemMarkersLayerRef.current = null;
+      userMarkerRef.current = null;
+    };
+  }, [clearActiveRoute]);
+
+  useEffect(() => {
+    if (!mapInstance.current || !totemMarkersLayerRef.current) return;
+
+    const markersLayer = totemMarkersLayerRef.current;
+    markersLayer.clearLayers();
 
     totems.forEach(totem => {
       const isOnlineStatus = totem.status === 'online';
@@ -338,7 +354,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
         iconAnchor: [18, 18]
       });
 
-      const marker = L.marker([totem.location.lat, totem.location.lng], { icon: totemIcon }).addTo(map);
+      const marker = L.marker([totem.location.lat, totem.location.lng], { icon: totemIcon }).addTo(markersLayer);
       marker.bindPopup(`
         <div style="font-family: 'Inter', sans-serif; padding: 8px; min-width: 160px;">
           <strong style="display: block; margin-bottom: 4px; font-size: 14px; color: #0f172a;">${totem.name}</strong>
@@ -360,26 +376,37 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
         </div>
       `);
     });
+  }, [totems]);
 
-    if (userLocation) {
-      const userIcon = L.divIcon({
-        className: 'user-marker',
-        html: `<div style="background-color: white; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #0284c7; box-shadow: 0 0 15px rgba(2, 132, 199, 0.5);"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      });
-      L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(map);
-      map.setView([userLocation.lat, userLocation.lng], 16);
+  useEffect(() => {
+    if (!mapInstance.current) return;
+
+    if (!userLocation) {
+      if (userMarkerRef.current) {
+        mapInstance.current.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      return;
     }
 
-    return () => {
-      clearActiveRoute();
-      if (mapInstance.current) {
-        mapInstance.current.remove();
-        mapInstance.current = null;
-      }
-    };
-  }, [clearActiveRoute, userLocation, totems]);
+    const userIcon = L.divIcon({
+      className: 'user-marker',
+      html: `<div style="background-color: white; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #0284c7; box-shadow: 0 0 15px rgba(2, 132, 199, 0.5);"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+
+    const userLatLng: L.LatLngExpression = [userLocation.lat, userLocation.lng];
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng(userLatLng);
+    } else {
+      userMarkerRef.current = L.marker(userLatLng, { icon: userIcon }).addTo(mapInstance.current);
+    }
+
+    if (!activeRouteTotem && !activeRouteData) {
+      mapInstance.current.setView([userLocation.lat, userLocation.lng], 16);
+    }
+  }, [activeRouteData, activeRouteTotem, userLocation]);
 
   const handleFocusTotem = (totem: Totem) => {
     setSelectedTotem(totem);
