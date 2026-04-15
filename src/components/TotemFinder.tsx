@@ -172,8 +172,9 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
     }
 
     pendingRouteTotemRef.current = null;
-  setIsNavigating(false);
-  setActiveRouteTotem(totem);
+    setSelectedTotem(totem);
+    setIsNavigating(false);
+    setActiveRouteTotem(totem);
 
     const map = mapInstance.current;
     clearActiveRoute();
@@ -389,6 +390,7 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
 
   const openDirections = (e: React.MouseEvent, totem: Totem) => {
     e.stopPropagation();
+    setSelectedTotem(totem);
     drawRouteToTotem(totem);
   };
 
@@ -432,8 +434,8 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                   </div>
                 </div>
               </div>
-            ) : (selectedTotem ?? nearestTotem) && (() => {
-              const cardTotem = (selectedTotem ?? nearestTotem)!;
+            ) : (activeRouteTotem ?? selectedTotem ?? nearestTotem) && (() => {
+              const cardTotem = (activeRouteTotem ?? selectedTotem ?? nearestTotem)!;
               return (
               <div key={cardTotem.id} className={`p-8 rounded-3xl shadow-xl text-white relative overflow-hidden group transition-all duration-500 ${cardTotem.status === 'online' ? 'bg-sky-600 shadow-sky-600/20' : 'bg-slate-600 shadow-slate-600/20'}`}>
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-white/20 transition-colors" />
@@ -485,9 +487,10 @@ const TotemFinder: React.FC<TotemFinderProps> = ({ userLocation, onRequestLocati
                   return (
                     <div
                       key={totem.id}
+                      onClick={() => handleFocusTotem(totem)}
                       className="w-full flex items-center justify-between p-3 md:p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-white hover:border-sky-200 hover:shadow-lg hover:shadow-sky-500/5 transition-all group"
                     >
-                      <div className="flex items-center gap-3 overflow-hidden" onClick={() => handleFocusTotem(totem)}>
+                      <div className="flex items-center gap-3 overflow-hidden">
                         <div className={`p-2.5 rounded-xl transition-colors duration-300 flex-shrink-0 ${isOnlineStatus ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 group-hover:bg-rose-100'}`}>
                           {isOnlineStatus ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                         </div>
