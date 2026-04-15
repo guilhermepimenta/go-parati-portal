@@ -97,12 +97,12 @@ const LiveFeed: React.FC = () => {
                             <h2 className="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">AO VIVO</h2>
                         </div>
                         <h3 className="text-lg font-bold text-white leading-tight">
-                            @prefeitura.paraty
+                            @go.paraty
                         </h3>
                     </div>
 
                     <a
-                        href="https://www.instagram.com/prefeitura.paraty/"
+                        href="https://www.instagram.com/go.paraty?igsh=ZzkyOGhmdGozNWN1"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 bg-slate-800 border border-slate-700 rounded-full text-slate-400 hover:bg-slate-700 hover:text-white transition-all active:scale-95"
@@ -124,7 +124,7 @@ const LiveFeed: React.FC = () => {
                     {displayPosts.map((post) => (
                         <a
                             key={post.id}
-                            href="https://www.instagram.com/prefeitura.paraty/"
+                            href="https://www.instagram.com/go.paraty?igsh=ZzkyOGhmdGozNWN1"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="group relative aspect-square overflow-hidden rounded-xl bg-slate-800 cursor-pointer block"
@@ -148,7 +148,7 @@ const LiveFeed: React.FC = () => {
 
                 {/* CTA */}
                 <a
-                    href="https://www.instagram.com/prefeitura.paraty/"
+                    href="https://www.instagram.com/go.paraty?igsh=ZzkyOGhmdGozNWN1"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-bold text-slate-300 text-xs transition-all active:scale-95"
