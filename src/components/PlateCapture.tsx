@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Camera, Keyboard, ArrowLeft, Check, Clock, Copy, AlertCircle, Loader2, Car } from 'lucide-react';
+import { X, Camera, Keyboard, ArrowLeft, Check, Clock, Copy, AlertCircle, Loader2, Car, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabase';
 import { extractVehicleFromImage, VehicleInfo } from '../services/ocr';
@@ -42,6 +42,10 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
     const [cameraActive, setCameraActive] = useState(false);
     const [cameraError, setCameraError] = useState(false);
 
+    // Geolocation state
+    const [locationAddress, setLocationAddress] = useState<string>('');
+    const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
+
     const stopCamera = useCallback(() => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
@@ -64,12 +68,44 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
         setPaymentConfirmed(false);
         setCopied(false);
         setCameraError(false);
+        setLocationAddress('');
+        setLocationCoords(null);
     }, [stopCamera]);
 
     const handleClose = () => {
         reset();
         onClose();
     };
+
+    // Capture geolocation when modal opens
+    useEffect(() => {
+        if (!isOpen) return;
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setLocationCoords({ lat: latitude, lng: longitude });
+                    try {
+                        const res = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+                            { headers: { 'Accept-Language': 'pt-BR' } }
+                        );
+                        const data = await res.json();
+                        const addr = data.address;
+                        const street = addr?.road || addr?.pedestrian || '';
+                        const number = addr?.house_number || '';
+                        const neighbourhood = addr?.suburb || addr?.neighbourhood || '';
+                        const parts = [street, number, neighbourhood].filter(Boolean);
+                        setLocationAddress(parts.join(', ') || data.display_name?.split(',').slice(0, 3).join(',') || '');
+                    } catch {
+                        setLocationAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+                    }
+                },
+                () => { /* geolocation denied - optional, continue without */ },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+    }, [isOpen]);
 
     // Stop camera when leaving capture step
     useEffect(() => {
@@ -167,19 +203,22 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
         setLoading(true);
         setError('');
         try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
             const { data, error: fetchError } = await supabase
                 .from('parking_prices')
                 .select('duration_minutes, amount_cents, label')
                 .eq('active', true)
-                .order('duration_minutes');
+                .order('duration_minutes')
+                .abortSignal(controller.signal);
+            clearTimeout(timeout);
 
             setPrices((!fetchError && data?.length) ? data : MVP_PRICES);
-            setStep('duration');
         } catch {
             setPrices(MVP_PRICES);
-            setStep('duration');
         } finally {
             setLoading(false);
+            setStep('duration');
         }
     };
 
@@ -202,6 +241,9 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                     vehicle_brand: vehicleInfo?.brand,
                     vehicle_model: vehicleInfo?.model,
                     vehicle_color: vehicleInfo?.color,
+                    location_description: locationAddress || undefined,
+                    location_lat: locationCoords?.lat,
+                    location_lng: locationCoords?.lng,
                 },
             });
 
@@ -213,6 +255,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                 vehicle_brand: vehicleInfo?.brand || undefined,
                 vehicle_model: vehicleInfo?.model || undefined,
                 vehicle_color: vehicleInfo?.color || undefined,
+                location_description: locationAddress || undefined,
                 duration_minutes: data.duration_minutes,
                 amount_cents: data.amount_cents,
                 status: data.status,
@@ -261,6 +304,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                 vehicle_brand: vehicleInfo?.brand || undefined,
                 vehicle_model: vehicleInfo?.model || undefined,
                 vehicle_color: vehicleInfo?.color || undefined,
+                location_description: locationAddress || undefined,
                 duration_minutes: selectedDuration,
                 amount_cents: selectedPrice.amount_cents,
                 status: 'pending',
@@ -464,6 +508,15 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                     </div>
                                 </div>
                             )}
+                            {locationAddress && (
+                                <div className="bg-surface rounded-xl p-3 flex items-start gap-2 text-left">
+                                    <MapPin className="w-4 h-4 text-coral mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-xs font-semibold text-muted uppercase tracking-wide">{t('parking.location')}</p>
+                                        <p className="text-sm text-ink">{locationAddress}</p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => { setStep('capture'); setManualEntry(true); }}
@@ -601,6 +654,12 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                         {new Date(ticket.expires_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
+                                {ticket.location_description && (
+                                    <div className="flex justify-between">
+                                        <span className="text-sm text-muted">{t('parking.location')}</span>
+                                        <span className="font-medium text-sm text-right max-w-[60%]">{ticket.location_description}</span>
+                                    </div>
+                                )}
                                 <div className="border-t border-border pt-2">
                                     <p className="text-xs text-muted text-center">
                                         ID: {ticket.id.substring(0, 8)}

@@ -79,7 +79,8 @@
         "need_help": "Need help? Chat with Paty on WhatsApp",
         "timer_active": "Parking Active",
         "timer_expired": "Parking Expired!",
-        "renew": "Renew"
+        "renew": "Renew",
+        "location": "Location"
     },
     "pwa": {
         "update_available": "Update Available",

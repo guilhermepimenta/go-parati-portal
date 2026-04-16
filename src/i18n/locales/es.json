@@ -79,7 +79,8 @@
         "need_help": "¿Necesitas ayuda? Habla con Paty en WhatsApp",
         "timer_active": "Estacionamiento Activo",
         "timer_expired": "¡Estacionamiento Expirado!",
-        "renew": "Renovar"
+        "renew": "Renovar",
+        "location": "Ubicación"
     },
     "common": {
         "menu": "Menú",

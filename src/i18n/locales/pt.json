@@ -79,7 +79,8 @@
         "need_help": "Precisa de ajuda? Fale com a Paty no WhatsApp",
         "timer_active": "Rotativo Ativo",
         "timer_expired": "Rotativo Expirado!",
-        "renew": "Renovar"
+        "renew": "Renovar",
+        "location": "Local"
     },
     "pwa": {
         "update_available": "Atualização Disponível",
