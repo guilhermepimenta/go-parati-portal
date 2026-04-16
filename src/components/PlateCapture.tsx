@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Camera, Keyboard, ArrowLeft, Check, Clock, Copy, AlertCircle, Loader2, Car } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabase';
+import { extractPlateFromImage } from '../services/ocr';
 import type { ParkingTicket, ParkingPriceOption } from '../types';
 
 type WizardStep = 'capture' | 'confirm' | 'duration' | 'payment' | 'receipt';
@@ -119,14 +120,10 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
         try {
             const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
-            const { data, error: fnError } = await supabase.functions.invoke('extract-plate', {
-                body: { image_base64: base64 },
-            });
+            const result = await extractPlateFromImage(base64);
 
-            if (fnError) throw new Error(fnError.message);
-
-            if (data?.plate) {
-                setPlate(data.plate);
+            if (result.plate) {
+                setPlate(result.plate);
                 setStep('confirm');
             } else {
                 stopCamera();

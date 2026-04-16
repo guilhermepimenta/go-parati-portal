@@ -20,10 +20,9 @@ serve(async (req) => {
             throw new Error('image_base64 is required')
         }
 
-        const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+        const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 
-        if (!OPENAI_API_KEY) {
-            // Fallback: return empty so frontend prompts manual entry
+        if (!GEMINI_API_KEY) {
             return new Response(JSON.stringify({
                 plate: null,
                 confidence: 0,
@@ -34,54 +33,45 @@ serve(async (req) => {
             })
         }
 
-        // Call OpenAI GPT-4o Vision for plate extraction
-        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a license plate recognition system. Extract the license plate text from the image. Return ONLY a JSON object with "plate" (uppercase, no dashes or spaces) and "confidence" (0-1). Brazilian plates use format ABC1D23 (Mercosul) or ABC1234 (old). If no plate is found, return {"plate": null, "confidence": 0}.'
-                    },
-                    {
-                        role: 'user',
-                        content: [
+        // Call Gemini 2.5 Flash for plate extraction
+        const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
                             {
-                                type: 'image_url',
-                                image_url: {
-                                    url: `data:image/jpeg;base64,${image_base64}`,
-                                    detail: 'low'
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: image_base64
                                 }
                             },
                             {
-                                type: 'text',
-                                text: 'Extract the license plate from this image.'
+                                text: 'Extract the vehicle license plate from this image. Brazilian plates use format ABC1D23 (Mercosul) or ABC1234 (old format). Return ONLY a JSON object: {"plate": "ABC1D23", "confidence": 0.95}. Uppercase, no dashes or spaces. If no plate found: {"plate": null, "confidence": 0}. Return ONLY the JSON, nothing else.'
                             }
                         ]
+                    }],
+                    generationConfig: {
+                        temperature: 0,
+                        maxOutputTokens: 100,
                     }
-                ],
-                max_tokens: 100,
-                temperature: 0,
-            })
-        })
+                })
+            }
+        )
 
-        const openaiData = await openaiResponse.json()
+        const geminiData = await geminiResponse.json()
 
-        if (!openaiResponse.ok) {
-            throw new Error(openaiData.error?.message || 'OpenAI API error')
+        if (!geminiResponse.ok) {
+            throw new Error(geminiData.error?.message || 'Gemini API error')
         }
 
-        const content = openaiData.choices?.[0]?.message?.content || '{}'
+        const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
 
-        // Parse the JSON response from GPT
+        // Parse the JSON response
         let parsed: { plate: string | null; confidence: number }
         try {
-            // Remove markdown code fences if present
             const cleaned = content.replace(/```json\n?|\n?```/g, '').trim()
             parsed = JSON.parse(cleaned)
         } catch {
