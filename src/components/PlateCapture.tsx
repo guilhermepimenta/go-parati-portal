@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Camera, Keyboard, ArrowLeft, Check, Clock, Copy, AlertCircle, Loader2, Car } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabase';
@@ -16,7 +16,9 @@ const PLATE_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
 
 const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCreated }) => {
     const { t } = useTranslation();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     // Wizard state
     const [step, setStep] = useState<WizardStep>('capture');
@@ -34,7 +36,20 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
     const [paymentConfirmed, setPaymentConfirmed] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    // Camera state
+    const [cameraActive, setCameraActive] = useState(false);
+    const [cameraError, setCameraError] = useState(false);
+
+    const stopCamera = useCallback(() => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setCameraActive(false);
+    }, []);
+
     const reset = useCallback(() => {
+        stopCamera();
         setStep('capture');
         setPlate('');
         setManualEntry(false);
@@ -45,34 +60,65 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
         setTicket(null);
         setPaymentConfirmed(false);
         setCopied(false);
-    }, []);
+        setCameraError(false);
+    }, [stopCamera]);
 
     const handleClose = () => {
         reset();
         onClose();
     };
 
-    // Step 1: Camera capture
-    const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // Stop camera when leaving capture step
+    useEffect(() => {
+        if (step !== 'capture') stopCamera();
+    }, [step, stopCamera]);
+
+    // Stop camera when modal closes
+    useEffect(() => {
+        if (!isOpen) stopCamera();
+    }, [isOpen, stopCamera]);
+
+    // Start live camera viewfinder
+    const startCamera = async () => {
+        setCameraError(false);
+        setError('');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+            streamRef.current = stream;
+            setCameraActive(true);
+            // Wait for ref to be available after render
+            requestAnimationFrame(() => {
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            });
+        } catch {
+            setCameraError(true);
+            setManualEntry(true);
+            setError(t('parking.camera_denied'));
+        }
+    };
+
+    // Capture frame from video and send to OCR
+    const captureFrame = async () => {
+        if (!videoRef.current || !canvasRef.current) return;
 
         setLoading(true);
         setError('');
 
-        try {
-            // Convert to base64
-            const base64 = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const result = reader.result as string;
-                    resolve(result.split(',')[1]); // Remove data:... prefix
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0);
 
-            // Call OCR Edge Function
+        try {
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
             const { data, error: fnError } = await supabase.functions.invoke('extract-plate', {
                 body: { image_base64: base64 },
             });
@@ -83,11 +129,12 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                 setPlate(data.plate);
                 setStep('confirm');
             } else {
-                // OCR failed or not configured — prompt manual entry
+                stopCamera();
                 setManualEntry(true);
                 setError(t('parking.ocr_failed'));
             }
-        } catch (err: any) {
+        } catch {
+            stopCamera();
             setManualEntry(true);
             setError(t('parking.ocr_failed'));
         } finally {
@@ -269,28 +316,47 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
 
                             {!manualEntry ? (
                                 <div className="space-y-3">
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={loading}
-                                        className="w-full flex items-center justify-center gap-3 py-4 bg-coral text-white rounded-xl font-semibold hover:bg-coral/90 transition-colors disabled:opacity-50"
-                                    >
-                                        {loading ? (
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                        ) : (
+                                    {cameraActive ? (
+                                        <>
+                                            <div className="relative rounded-xl overflow-hidden bg-black">
+                                                <video
+                                                    ref={videoRef}
+                                                    autoPlay
+                                                    playsInline
+                                                    muted
+                                                    className="w-full h-48 object-cover"
+                                                />
+                                                {/* Plate guide overlay */}
+                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                    <div className="w-3/4 h-12 border-2 border-white/70 rounded-lg" />
+                                                </div>
+                                            </div>
+                                            <canvas ref={canvasRef} className="hidden" />
+                                            <button
+                                                onClick={captureFrame}
+                                                disabled={loading}
+                                                className="w-full flex items-center justify-center gap-3 py-4 bg-coral text-white rounded-xl font-semibold hover:bg-coral/90 transition-colors disabled:opacity-50"
+                                            >
+                                                {loading ? (
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    <Camera className="w-5 h-5" />
+                                                )}
+                                                {loading ? t('parking.analyzing') : t('parking.snap')}
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={startCamera}
+                                            disabled={loading}
+                                            className="w-full flex items-center justify-center gap-3 py-4 bg-coral text-white rounded-xl font-semibold hover:bg-coral/90 transition-colors disabled:opacity-50"
+                                        >
                                             <Camera className="w-5 h-5" />
-                                        )}
-                                        {loading ? t('parking.analyzing') : t('parking.take_photo')}
-                                    </button>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        onChange={handleCapture}
-                                        className="hidden"
-                                    />
+                                            {t('parking.take_photo')}
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={() => setManualEntry(true)}
+                                        onClick={() => { stopCamera(); setManualEntry(true); }}
                                         className="w-full flex items-center justify-center gap-2 py-3 border border-border rounded-xl text-sm text-muted hover:bg-surface transition-colors"
                                     >
                                         <Keyboard className="w-4 h-4" />
@@ -316,7 +382,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                         {t('parking.confirm_plate')}
                                     </button>
                                     <button
-                                        onClick={() => { setManualEntry(false); setError(''); }}
+                                        onClick={() => { setManualEntry(false); setError(''); setCameraError(false); }}
                                         className="w-full text-center text-sm text-muted hover:text-ink transition-colors"
                                     >
                                         {t('parking.back_to_camera')}

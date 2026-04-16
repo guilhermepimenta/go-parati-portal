@@ -54,6 +54,8 @@
         "confirm_plate": "Confirmar",
         "back_to_camera": "Volver a la cámara",
         "ocr_failed": "No pudimos leer la placa. Escríbela manualmente.",
+        "camera_denied": "Cámara no disponible. Escribe la placa manualmente.",
+        "snap": "Capturar",
         "invalid_plate": "Placa inválida. Usa el formato ABC1D23.",
         "confirm_desc": "Verifica si la placa es correcta:",
         "edit_plate": "Editar",

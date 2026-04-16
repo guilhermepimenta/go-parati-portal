@@ -54,6 +54,8 @@
         "confirm_plate": "Confirm",
         "back_to_camera": "Back to camera",
         "ocr_failed": "Could not read the plate. Please type it manually.",
+        "camera_denied": "Camera not available. Please type the plate manually.",
+        "snap": "Capture",
         "invalid_plate": "Invalid plate. Use format ABC1D23.",
         "confirm_desc": "Check if the plate is correct:",
         "edit_plate": "Edit",
