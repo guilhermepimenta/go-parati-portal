@@ -66,6 +66,30 @@ export interface User {
   password?: string; // In a real app never store this on client
 }
 
+export type ParkingTicketStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
+
+export interface ParkingTicket {
+  id: string;
+  plate: string;
+  duration_minutes: number;
+  amount_cents: number;
+  status: ParkingTicketStatus;
+  payment_method: 'pix' | 'card';
+  payment_id?: string;
+  pix_code?: string;
+  qr_code_base64?: string;
+  location_description?: string;
+  user_id?: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface ParkingPriceOption {
+  duration_minutes: number;
+  label: string;
+  amount_cents: number;
+}
+
 export type BusinessStatus = 'published' | 'pending_approval' | 'pending_delete';
 
 export interface Business {

@@ -2,11 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import PlateCapture from './PlateCapture';
+import type { ParkingTicket } from '../types';
 
-const PatyAgent: React.FC = () => {
+interface PatyAgentProps {
+    onTicketCreated?: (ticket: ParkingTicket) => void;
+}
+
+const PatyAgent: React.FC<PatyAgentProps> = ({ onTicketCreated }) => {
     const { t } = useTranslation();
     const [isVisible, setIsVisible] = useState(false);
     const [showBubble, setShowBubble] = useState(false);
+    const [showPlateCapture, setShowPlateCapture] = useState(false);
 
     // Typewriter State
     const [headerText, setHeaderText] = useState("");
@@ -87,11 +94,21 @@ const PatyAgent: React.FC = () => {
 
     if (!isVisible) return null;
 
-    const whatsappNumber = "5524999999999"; // Placeholder
-    const message = encodeURIComponent("Olá Agente Paty! Estacionei agora e gostaria de comprar um ticket do Rotativo.");
-    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${message}`;
+    const handleAvatarClick = () => {
+        setShowBubble(false);
+        setShowPlateCapture(true);
+    };
 
     return (
+        <>
+        <PlateCapture
+            isOpen={showPlateCapture}
+            onClose={() => setShowPlateCapture(false)}
+            onTicketCreated={(ticket) => {
+                setShowPlateCapture(false);
+                onTicketCreated?.(ticket);
+            }}
+        />
 
         <div className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-50 md:hidden flex flex-col items-end gap-1 transition-all duration-500 ease-in-out ${showOnScroll && isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
 
@@ -120,12 +137,9 @@ const PatyAgent: React.FC = () => {
             )}
 
             {/* Avatar Button */}
-            <a
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
+            <button
+                onClick={handleAvatarClick}
                 className="relative group cursor-pointer"
-                onClick={() => setShowBubble(false)} // Close bubble on click
             >
                 {/* Pulse Effect */}
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-25 animate-ping"></span>
@@ -142,8 +156,9 @@ const PatyAgent: React.FC = () => {
 
                 {/* Status Indicator */}
                 <span className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-green-500 border-2 border-white rounded-full z-10"></span>
-            </a>
+            </button>
         </div>
+        </>
     );
 };
 

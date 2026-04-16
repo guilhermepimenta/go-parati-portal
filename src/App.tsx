@@ -6,6 +6,7 @@ import { Advertise } from './components/Advertise';
 import { TermsOfUse, PrivacyPolicy, HelpCenter } from './components/LegalPages';
 import Home from './pages/Home';
 import ReloadPrompt from './components/ReloadPrompt';
+import ActiveTicket from './components/ActiveTicket';
 
 import { authService } from './auth';
 import { Business, UserLocation, User } from './types';
@@ -204,6 +205,7 @@ const App: React.FC = () => {
         onLoginClick={() => currentUser ? setCurrentView('dashboard') : setShowLogin(true)}
         initialView={currentView}
       />
+      <ActiveTicket />
       <ReloadPrompt />
     </>
   );
