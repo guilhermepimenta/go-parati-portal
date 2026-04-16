@@ -12,7 +12,7 @@ serve(async (req) => {
     }
 
     try {
-        const { plate, duration_minutes, payment_method, location_description } = await req.json()
+        const { plate, duration_minutes, payment_method, location_description, vehicle_brand, vehicle_model, vehicle_color } = await req.json()
 
         if (!plate || !duration_minutes) {
             throw new Error('plate and duration_minutes are required')
@@ -88,6 +88,9 @@ serve(async (req) => {
                 payment_id: mockPaymentId,
                 pix_code: mockPixCode,
                 location_description: location_description || null,
+                vehicle_brand: vehicle_brand || null,
+                vehicle_model: vehicle_model || null,
+                vehicle_color: vehicle_color || null,
                 expires_at,
             })
             .select()

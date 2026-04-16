@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS parking_tickets (
     pix_code TEXT,
     qr_code_base64 TEXT,
     location_description TEXT,
+    vehicle_brand TEXT,
+    vehicle_model TEXT,
+    vehicle_color TEXT,
     user_id UUID REFERENCES auth.users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at TIMESTAMPTZ NOT NULL
