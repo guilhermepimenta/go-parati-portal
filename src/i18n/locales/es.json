@@ -58,6 +58,8 @@
         "snap": "Capturar",
         "invalid_plate": "Placa inválida. Usa el formato ABC1D23.",
         "confirm_desc": "Verifica si la placa es correcta:",
+        "vehicle_info": "Vehículo identificado",
+        "vehicle_label": "Vehículo",
         "edit_plate": "Editar",
         "plate_correct": "Es correcta",
         "duration_desc": "Elige el tiempo de estacionamiento:",

@@ -33,7 +33,7 @@ serve(async (req) => {
             })
         }
 
-        // Call Gemini 2.5 Flash for plate extraction
+        // Call Gemini 2.5 Flash for vehicle extraction
         const geminiResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
             {
@@ -49,13 +49,13 @@ serve(async (req) => {
                                 }
                             },
                             {
-                                text: 'Extract the vehicle license plate from this image. Brazilian plates use format ABC1D23 (Mercosul) or ABC1234 (old format). Return ONLY a JSON object: {"plate": "ABC1D23", "confidence": 0.95}. Uppercase, no dashes or spaces. If no plate found: {"plate": null, "confidence": 0}. Return ONLY the JSON, nothing else.'
+                                text: 'Analyze this vehicle image. Extract: 1) License plate (Brazilian format ABC1D23 Mercosul or ABC1234 old). 2) Vehicle brand (ex: Fiat, Volkswagen, Chevrolet, Toyota, Honda). 3) Vehicle model (ex: Uno, Gol, Onix, Corolla, Civic). 4) Vehicle color in Portuguese (ex: Branco, Preto, Prata, Vermelho, Azul). Return ONLY a JSON: {"plate": "ABC1D23", "brand": "Fiat", "model": "Uno", "color": "Branco", "confidence": 0.95}. Plate must be uppercase, no dashes/spaces. If any field not identifiable, use null. Return ONLY raw JSON, no markdown.'
                             }
                         ]
                     }],
                     generationConfig: {
                         temperature: 0,
-                        maxOutputTokens: 100,
+                        maxOutputTokens: 200,
                     }
                 })
             }
@@ -70,12 +70,12 @@ serve(async (req) => {
         const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
 
         // Parse the JSON response
-        let parsed: { plate: string | null; confidence: number }
+        let parsed: { plate: string | null; brand: string | null; model: string | null; color: string | null; confidence: number }
         try {
             const cleaned = content.replace(/```json\n?|\n?```/g, '').trim()
             parsed = JSON.parse(cleaned)
         } catch {
-            parsed = { plate: null, confidence: 0 }
+            parsed = { plate: null, brand: null, model: null, color: null, confidence: 0 }
         }
 
         // Validate plate format

@@ -71,6 +71,9 @@ export type ParkingTicketStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
 export interface ParkingTicket {
   id: string;
   plate: string;
+  vehicle_brand?: string;
+  vehicle_model?: string;
+  vehicle_color?: string;
   duration_minutes: number;
   amount_cents: number;
   status: ParkingTicketStatus;

@@ -58,6 +58,8 @@
         "snap": "Capture",
         "invalid_plate": "Invalid plate. Use format ABC1D23.",
         "confirm_desc": "Check if the plate is correct:",
+        "vehicle_info": "Vehicle identified",
+        "vehicle_label": "Vehicle",
         "edit_plate": "Edit",
         "plate_correct": "It's correct",
         "duration_desc": "Choose parking duration:",
