@@ -139,13 +139,13 @@ const PatyAgent: React.FC<PatyAgentProps> = ({ onTicketCreated }) => {
             {/* Avatar Button */}
             <button
                 onClick={handleAvatarClick}
-                className="relative group cursor-pointer"
+                className="relative group cursor-pointer w-14 h-14"
             >
                 {/* Pulse Effect */}
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-25 animate-ping"></span>
+                <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-25 animate-ping"></span>
 
                 {/* Image Container */}
-                <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-0.5 shadow-lg shadow-emerald-500/30 overflow-hidden border-2 border-white">
+                <div className="relative w-full h-full rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-0.5 shadow-lg shadow-emerald-500/30 overflow-hidden border-2 border-white">
                     {/* Paty Avatar */}
                     <img
                         src="/paty-avatar.png"
