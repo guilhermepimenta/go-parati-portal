@@ -22,6 +22,7 @@ import LeadsManager from './dashboard/LeadsManager';
 import UserManagement from './dashboard/UserManagement';
 import ApprovalsManager from './dashboard/ApprovalsManager';
 import AnalyticsOverview from './dashboard/AnalyticsOverview';
+import BlogEditor from './dashboard/BlogEditor';
 import Logo from './Logo';
 
 // Fix Leaflet Default Icon in React
@@ -1570,6 +1571,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
+          ) : activeMenu === 'blog' ? (
+            <BlogEditor />
           ) : activeMenu === 'analytics' ? (
             <AnalyticsOverview />
           ) : activeMenu === 'categories' ? (

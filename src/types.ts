@@ -82,6 +82,10 @@ export interface ParkingTicket {
   pix_code?: string;
   qr_code_base64?: string;
   location_description?: string;
+  buyer_name?: string;
+  buyer_cpf?: string;
+  buyer_email?: string;
+  activated_at?: string;
   user_id?: string;
   created_at: string;
   expires_at: string;
@@ -94,6 +98,29 @@ export interface ParkingPriceOption {
 }
 
 export type BusinessStatus = 'published' | 'pending_approval' | 'pending_delete';
+
+// Blog
+export type BlogPostStatus = 'draft' | 'published' | 'archived';
+export type BlogCategory = 'noticias' | 'turismo' | 'eventos' | 'gastronomia' | 'historia' | 'dicas';
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  cover_image_url?: string;
+  category: BlogCategory;
+  author_id?: string;
+  author_name?: string;
+  status: BlogPostStatus;
+  meta_description?: string;
+  tags?: string[];
+  ai_generated?: boolean;
+  published_at?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Business {
   id: string;
