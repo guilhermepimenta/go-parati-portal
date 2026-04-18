@@ -80,7 +80,17 @@
         "timer_active": "Estacionamiento Activo",
         "timer_expired": "¡Estacionamiento Expirado!",
         "renew": "Renovar",
-        "location": "Ubicación"
+        "location": "Ubicación",
+        "buyer_desc": "Ingresa tus datos para la emisión del comprobante digital.",
+        "buyer_name_label": "Nombre completo",
+        "buyer_cpf_label": "CPF (Identificación fiscal)",
+        "buyer_email_label": "Correo electrónico",
+        "buyer_disclaimer": "Tus datos son necesarios para emitir el comprobante y enviarlo por correo.",
+        "buyer_continue": "Continuar",
+        "buyer_name_required": "Ingresa tu nombre completo (mínimo 3 caracteres).",
+        "buyer_cpf_invalid": "CPF inválido. Verifica los números.",
+        "buyer_email_invalid": "Correo electrónico inválido.",
+        "receipt_email_sent": "Comprobante enviado a {{email}}"
     },
     "common": {
         "menu": "Menú",

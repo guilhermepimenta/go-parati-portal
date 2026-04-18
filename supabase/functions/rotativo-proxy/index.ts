@@ -426,7 +426,7 @@ serve(async (req) => {
 
     // ────── ACTION: generate-pix ──────
     if (action === 'generate-pix') {
-      const { plate, brand, color, periods, buyer_name, buyer_cpf, buyer_email, location_description, location_lat, location_lng } = body
+      const { plate, brand, model, color, periods, buyer_name, buyer_cpf, buyer_email, location_description, location_lat, location_lng } = body
 
       if (!plate || !brand || !color || !periods || !buyer_name || !buyer_cpf || !buyer_email) {
         throw new Error('Missing required fields: plate, brand, color, periods, buyer_name, buyer_cpf, buyer_email')
@@ -467,6 +467,7 @@ serve(async (req) => {
         .insert({
           plate: normalizedPlate,
           vehicle_brand: brand,
+          vehicle_model: model || null,
           vehicle_color: color,
           duration_minutes: periods * 60,
           amount_cents: amountCents,

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Camera, Keyboard, ArrowLeft, Check, Clock, Copy, AlertCircle, Loader2, Car, MapPin } from 'lucide-react';
+import { X, Camera, Keyboard, ArrowLeft, Check, Clock, Copy, AlertCircle, Loader2, Car, MapPin, User, Mail, CreditCard } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabase';
 import { extractVehicleFromImage, VehicleInfo } from '../services/ocr';
 import type { ParkingTicket, ParkingPriceOption } from '../types';
 
-type WizardStep = 'capture' | 'confirm' | 'duration' | 'payment' | 'receipt';
+type WizardStep = 'capture' | 'confirm' | 'buyer-info' | 'duration' | 'payment' | 'receipt';
 
 interface PlateCaptureProps {
     isOpen: boolean;
@@ -14,6 +14,33 @@ interface PlateCaptureProps {
 }
 
 const PLATE_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
+
+const WIZARD_STEPS: WizardStep[] = ['capture', 'confirm', 'buyer-info', 'duration', 'payment', 'receipt'];
+
+/** Validate CPF check digits */
+function isValidCpf(cpf: string): boolean {
+    const digits = cpf.replace(/\D/g, '');
+    if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
+    let rest = (sum * 10) % 11;
+    if (rest === 10) rest = 0;
+    if (rest !== parseInt(digits[9])) return false;
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
+    rest = (sum * 10) % 11;
+    if (rest === 10) rest = 0;
+    return rest === parseInt(digits[10]);
+}
+
+/** Format CPF with mask */
+function formatCpfInput(value: string): string {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
 
 const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCreated }) => {
     const { t } = useTranslation();
@@ -28,6 +55,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
     const [manualEntry, setManualEntry] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isMvpFallback, setIsMvpFallback] = useState(false);
 
     // Price/duration state
     const [prices, setPrices] = useState<ParkingPriceOption[]>([]);
@@ -45,6 +73,20 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
     // Geolocation state
     const [locationAddress, setLocationAddress] = useState<string>('');
     const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
+
+    // Vehicle info editável (pré-populado pelo OCR ou digitado manualmente)
+    const [vehicleBrand, setVehicleBrand] = useState('');
+    const [vehicleModel, setVehicleModel] = useState('');
+    const [vehicleColor, setVehicleColor] = useState('');
+
+    // Buyer info state
+    const [buyerName, setBuyerName] = useState('');
+    const [buyerCpf, setBuyerCpf] = useState('');
+    const [buyerEmail, setBuyerEmail] = useState('');
+
+    // Payment polling
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const stopCamera = useCallback(() => {
         if (streamRef.current) {
@@ -56,6 +98,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
 
     const reset = useCallback(() => {
         stopCamera();
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         setStep('capture');
         setPlate('');
         setVehicleInfo(null);
@@ -70,6 +113,14 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
         setCameraError(false);
         setLocationAddress('');
         setLocationCoords(null);
+        setLocationLoading(false);
+        setIsMvpFallback(false);
+        setVehicleBrand('');
+        setVehicleModel('');
+        setVehicleColor('');
+        setBuyerName('');
+        setBuyerCpf('');
+        setBuyerEmail('');
     }, [stopCamera]);
 
     const handleClose = () => {
@@ -80,6 +131,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
     // Capture geolocation when modal opens
     useEffect(() => {
         if (!isOpen) return;
+        setLocationLoading(true);
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
@@ -99,11 +151,15 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                         setLocationAddress(parts.join(', ') || data.display_name?.split(',').slice(0, 3).join(',') || '');
                     } catch {
                         setLocationAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+                    } finally {
+                        setLocationLoading(false);
                     }
                 },
-                () => { /* geolocation denied - optional, continue without */ },
+                () => { setLocationLoading(false); /* geolocation denied */ },
                 { enableHighAccuracy: true, timeout: 10000 }
             );
+        } else {
+            setLocationLoading(false);
         }
     }, [isOpen]);
 
@@ -163,6 +219,9 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
             if (result.plate) {
                 setPlate(result.plate);
                 setVehicleInfo(result);
+                setVehicleBrand(result.brand || '');
+                setVehicleModel(result.model || '');
+                setVehicleColor(result.color || '');
                 setStep('confirm');
             } else {
                 stopCamera();
@@ -186,82 +245,128 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
             return;
         }
         setPlate(normalized);
+        setVehicleInfo(null);
+        setVehicleBrand('');
+        setVehicleModel('');
+        setVehicleColor('');
         setError('');
         setStep('confirm');
     };
 
-    // MVP price table (fallback if Supabase table not yet created)
-    const MVP_PRICES: ParkingPriceOption[] = [
-        { duration_minutes: 30, amount_cents: 300, label: '30 minutos' },
-        { duration_minutes: 60, amount_cents: 500, label: '1 hora' },
-        { duration_minutes: 120, amount_cents: 900, label: '2 horas' },
-        { duration_minutes: 180, amount_cents: 1200, label: '3 horas' },
-    ];
+    // Price table: R$3.00 per period of 1h (Paraty Rotativo)
+    // Parking hours: Dom-Qua 8h–19h (max 11h), Qui-Sab 8h–24h (max 16h)
+    const MAX_PERIODS = 16;
+    const PRICE_PER_PERIOD_CENTS = 300;
+    const MVP_PRICES: ParkingPriceOption[] = Array.from({ length: MAX_PERIODS }, (_, i) => {
+        const hours = i + 1;
+        return {
+            duration_minutes: hours * 60,
+            amount_cents: hours * PRICE_PER_PERIOD_CENTS,
+            label: hours === 1
+                ? '1 hora — 1 período'
+                : `${hours} horas — ${hours} períodos`,
+        };
+    });
 
-    // Step 2 → 3: Load prices and go to duration
+    // Step 2 → 3: Go to buyer info
     const handleConfirmPlate = async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
-            const { data, error: fetchError } = await supabase
-                .from('parking_prices')
-                .select('duration_minutes, amount_cents, label')
-                .eq('active', true)
-                .order('duration_minutes')
-                .abortSignal(controller.signal);
-            clearTimeout(timeout);
-
-            setPrices((!fetchError && data?.length) ? data : MVP_PRICES);
-        } catch {
-            setPrices(MVP_PRICES);
-        } finally {
-            setLoading(false);
-            setStep('duration');
+        if (!vehicleBrand.trim()) {
+            setError('Informe a marca do veículo.');
+            return;
         }
+        if (!vehicleColor.trim()) {
+            setError('Informe a cor do veículo.');
+            return;
+        }
+        setError('');
+        setPrices(MVP_PRICES);
+        setStep('buyer-info');
     };
 
-    // Step 3 → 4: Buy ticket
+    // Step 3 → 4: Validate buyer info and go to duration
+    const handleConfirmBuyer = () => {
+        setError('');
+        if (!buyerName.trim() || buyerName.trim().length < 3) {
+            setError(t('parking.buyer_name_required'));
+            return;
+        }
+        if (!isValidCpf(buyerCpf)) {
+            setError(t('parking.buyer_cpf_invalid'));
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(buyerEmail.trim())) {
+            setError(t('parking.buyer_email_invalid'));
+            return;
+        }
+        setStep('duration');
+    };
+
+    // Step 4 → 5: Buy ticket via rotativo-proxy
     const handleBuyTicket = async () => {
         if (!selectedDuration) return;
+
+        const selectedPrice = prices.find(p => p.duration_minutes === selectedDuration);
+        if (!selectedPrice) {
+            console.error('[PlateCapture] selectedPrice not found for duration:', selectedDuration, 'available:', prices);
+            setError('Preço não encontrado para o período selecionado.');
+            return;
+        }
+
         setLoading(true);
         setError('');
 
-        const selectedPrice = prices.find(p => p.duration_minutes === selectedDuration);
-        if (!selectedPrice) return;
+        const periods = selectedDuration / 60;
+        console.log('[PlateCapture] handleBuyTicket start', { plate, periods, selectedDuration, amount: selectedPrice.amount_cents });
 
         try {
-            // Try Edge Function first
-            const { data, error: fnError } = await supabase.functions.invoke('buy-ticket', {
+            // Call rotativo-proxy to login, register vehicle, generate PIX
+            console.log('[PlateCapture] Calling rotativo-proxy generate-pix...');
+
+            // Race the Edge Function call against a 20-second timeout
+            const invokePromise = supabase.functions.invoke('rotativo-proxy', {
                 body: {
+                    action: 'generate-pix',
                     plate,
-                    duration_minutes: selectedDuration,
-                    payment_method: 'pix',
-                    vehicle_brand: vehicleInfo?.brand,
-                    vehicle_model: vehicleInfo?.model,
-                    vehicle_color: vehicleInfo?.color,
+                    brand: vehicleBrand.trim() || 'N/I',
+                    model: vehicleModel.trim() || undefined,
+                    color: vehicleColor.trim() || 'N/I',
+                    periods,
+                    buyer_name: buyerName.trim(),
+                    buyer_cpf: buyerCpf.replace(/\D/g, ''),
+                    buyer_email: buyerEmail.trim().toLowerCase(),
                     location_description: locationAddress || undefined,
                     location_lat: locationCoords?.lat,
                     location_lng: locationCoords?.lng,
                 },
             });
+            const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Edge Function timeout after 45s')), 45000)
+            );
+
+            const { data, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
+
+            console.log('[PlateCapture] rotativo-proxy response:', { data, fnError });
 
             if (fnError) throw fnError;
 
             const newTicket: ParkingTicket = {
                 id: data.ticket_id,
                 plate: data.plate,
-                vehicle_brand: vehicleInfo?.brand || undefined,
-                vehicle_model: vehicleInfo?.model || undefined,
-                vehicle_color: vehicleInfo?.color || undefined,
+                vehicle_brand: vehicleBrand.trim() || undefined,
+                vehicle_model: vehicleModel.trim() || undefined,
+                vehicle_color: vehicleColor.trim() || undefined,
                 location_description: locationAddress || undefined,
-                duration_minutes: data.duration_minutes,
+                buyer_name: buyerName.trim(),
+                buyer_cpf: buyerCpf.replace(/\D/g, ''),
+                buyer_email: buyerEmail.trim().toLowerCase(),
+                duration_minutes: selectedDuration,
                 amount_cents: data.amount_cents,
-                status: data.status,
+                status: 'pending',
                 payment_method: 'pix',
                 payment_id: data.payment_id,
                 pix_code: data.pix_code,
+                qr_code_base64: data.qr_code_base64,
                 created_at: data.created_at,
                 expires_at: data.expires_at,
             };
@@ -269,29 +374,50 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
             setTicket(newTicket);
             setStep('payment');
 
-            // Poll for payment confirmation
-            const pollInterval = setInterval(async () => {
-                const { data: updated } = await supabase
-                    .from('parking_tickets')
-                    .select('status')
-                    .eq('id', newTicket.id)
-                    .single();
+            // Poll payment via rotativo-proxy check-payment
+            pollRef.current = setInterval(async () => {
+                try {
+                    const { data: checkData } = await supabase.functions.invoke('rotativo-proxy', {
+                        body: { action: 'check-payment', ticket_id: newTicket.id },
+                    });
 
-                if (updated?.status === 'paid') {
-                    clearInterval(pollInterval);
-                    setPaymentConfirmed(true);
-                    newTicket.status = 'paid';
-                    setTicket({ ...newTicket });
-                    localStorage.setItem('activeTicket', JSON.stringify(newTicket));
-                    window.dispatchEvent(new Event('ticketUpdated'));
-                    onTicketCreated?.(newTicket);
-                    setTimeout(() => setStep('receipt'), 1000);
-                }
-            }, 2000);
+                    if (checkData?.paid) {
+                        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+                        setPaymentConfirmed(true);
+                        newTicket.status = 'paid';
+                        setTicket({ ...newTicket });
 
-            setTimeout(() => clearInterval(pollInterval), 300000);
-        } catch {
-            // MVP fallback: create ticket locally when Edge Function not deployed
+                        // Activate parking on Paraty Rotativo
+                        try {
+                            const { data: activateData } = await supabase.functions.invoke('rotativo-proxy', {
+                                body: { action: 'activate-parking', ticket_id: newTicket.id },
+                            });
+                            if (activateData?.end_time) {
+                                newTicket.expires_at = activateData.end_time;
+                                newTicket.activated_at = activateData.start_time;
+                            }
+                        } catch { /* parking activation is best-effort */ }
+
+                        // Send receipt email
+                        sendReceiptEmail(newTicket);
+
+                        setTicket({ ...newTicket });
+                        localStorage.setItem('activeTicket', JSON.stringify(newTicket));
+                        window.dispatchEvent(new Event('ticketUpdated'));
+                        onTicketCreated?.(newTicket);
+                        setTimeout(() => setStep('receipt'), 1500);
+                    }
+                } catch { /* ignore polling errors */ }
+            }, 5000);
+
+            // Timeout after 10 minutes
+            setTimeout(() => {
+                if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+            }, 600000);
+        } catch (err) {
+            // MVP fallback: create ticket locally when Edge Function not deployed/reachable
+            console.warn('[PlateCapture] Edge Function failed, using MVP fallback:', err);
+            setIsMvpFallback(true);
             const now = new Date();
             const expiresAt = new Date(now.getTime() + selectedDuration * 60 * 1000);
             const mockId = crypto.randomUUID();
@@ -301,10 +427,13 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
             const newTicket: ParkingTicket = {
                 id: mockId,
                 plate,
-                vehicle_brand: vehicleInfo?.brand || undefined,
-                vehicle_model: vehicleInfo?.model || undefined,
-                vehicle_color: vehicleInfo?.color || undefined,
+                vehicle_brand: vehicleBrand.trim() || undefined,
+                vehicle_model: vehicleModel.trim() || undefined,
+                vehicle_color: vehicleColor.trim() || undefined,
                 location_description: locationAddress || undefined,
+                buyer_name: buyerName.trim(),
+                buyer_cpf: buyerCpf.replace(/\D/g, ''),
+                buyer_email: buyerEmail.trim().toLowerCase(),
                 duration_minutes: selectedDuration,
                 amount_cents: selectedPrice.amount_cents,
                 status: 'pending',
@@ -317,20 +446,21 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
 
             setTicket(newTicket);
             setStep('payment');
-
-            // MVP: auto-confirm after 3s
-            setTimeout(() => {
-                newTicket.status = 'paid';
-                setPaymentConfirmed(true);
-                setTicket({ ...newTicket });
-                localStorage.setItem('activeTicket', JSON.stringify(newTicket));
-                window.dispatchEvent(new Event('ticketUpdated'));
-                onTicketCreated?.(newTicket);
-                setTimeout(() => setStep('receipt'), 1000);
-            }, 3000);
+            // No auto-confirm — user must pay or use the dev button
         } finally {
             setLoading(false);
         }
+    };
+
+    /** Send receipt email — works for both real (ticket_id) and MVP fallback (inline data) */
+    const sendReceiptEmail = (paidTicket: ParkingTicket) => {
+        const body = paidTicket.id && !isMvpFallback
+            ? { ticket_id: paidTicket.id }
+            : { ticket_data: paidTicket };
+        console.log('[PlateCapture] sendReceiptEmail body:', JSON.stringify(body).slice(0, 120));
+        supabase.functions.invoke('send-receipt', { body })
+            .then((r) => console.log('[PlateCapture] send-receipt response:', r.data, r.error))
+            .catch((e) => console.warn('[PlateCapture] send-receipt failed:', e));
     };
 
     const handleCopyPix = async () => {
@@ -357,7 +487,8 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                             <button
                                 onClick={() => {
                                     if (step === 'confirm') { setStep('capture'); setManualEntry(false); setError(''); }
-                                    else if (step === 'duration') setStep('confirm');
+                                    else if (step === 'buyer-info') { setStep('confirm'); setError(''); }
+                                    else if (step === 'duration') { setStep('buyer-info'); setError(''); }
                                     else if (step === 'payment') setStep('duration');
                                 }}
                                 className="p-1 hover:bg-surface rounded-lg transition-colors"
@@ -377,11 +508,11 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
 
                 {/* Progress indicator */}
                 <div className="flex gap-1 px-4 pt-3">
-                    {(['capture', 'confirm', 'duration', 'payment', 'receipt'] as WizardStep[]).map((s, i) => (
+                    {WIZARD_STEPS.map((s, i) => (
                         <div
                             key={s}
                             className={`h-1 flex-1 rounded-full transition-colors ${
-                                i <= ['capture', 'confirm', 'duration', 'payment', 'receipt'].indexOf(step)
+                                i <= WIZARD_STEPS.indexOf(step)
                                     ? 'bg-coral'
                                     : 'bg-border'
                             }`}
@@ -490,33 +621,62 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                             <div className="inline-block bg-amber-50 border-2 border-amber-400 rounded-xl px-8 py-4">
                                 <p className="text-3xl font-black tracking-[0.3em] text-ink">{plate}</p>
                             </div>
-                            {vehicleInfo && (vehicleInfo.brand || vehicleInfo.model || vehicleInfo.color) && (
-                                <div className="bg-surface rounded-xl p-3 space-y-1 text-left">
-                                    <p className="text-xs font-semibold text-muted uppercase tracking-wide">{t('parking.vehicle_info')}</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {vehicleInfo.brand && (
-                                            <span className="px-2 py-1 bg-white rounded-lg text-sm font-medium border border-border">{vehicleInfo.brand}</span>
-                                        )}
-                                        {vehicleInfo.model && (
-                                            <span className="px-2 py-1 bg-white rounded-lg text-sm font-medium border border-border">{vehicleInfo.model}</span>
-                                        )}
-                                        {vehicleInfo.color && (
-                                            <span className="px-2 py-1 bg-white rounded-lg text-sm font-medium border border-border">
-                                                🎨 {vehicleInfo.color}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                            {locationAddress && (
-                                <div className="bg-surface rounded-xl p-3 flex items-start gap-2 text-left">
-                                    <MapPin className="w-4 h-4 text-coral mt-0.5 shrink-0" />
+
+                            {/* Campos de marca e cor — obrigatórios */}
+                            <div className="space-y-3 text-left">
+                                <p className="text-xs font-semibold text-muted uppercase tracking-wide flex items-center gap-1.5">
+                                    <Car className="w-3.5 h-3.5" />
+                                    Dados do veículo
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold text-muted uppercase tracking-wide">{t('parking.location')}</p>
-                                        <p className="text-sm text-ink">{locationAddress}</p>
+                                        <label className="text-xs font-medium text-muted mb-1 block">Marca *</label>
+                                        <input
+                                            type="text"
+                                            value={vehicleBrand}
+                                            onChange={(e) => setVehicleBrand(e.target.value)}
+                                            placeholder="Ex: Fiat, VW, GM"
+                                            className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:border-coral focus:outline-none transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-muted mb-1 block">Cor *</label>
+                                        <input
+                                            type="text"
+                                            value={vehicleColor}
+                                            onChange={(e) => setVehicleColor(e.target.value)}
+                                            placeholder="Ex: Branco, Prata"
+                                            className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:border-coral focus:outline-none transition-colors"
+                                        />
                                     </div>
                                 </div>
-                            )}
+                                <div>
+                                    <label className="text-xs font-medium text-muted mb-1 block">Modelo</label>
+                                    <input
+                                        type="text"
+                                        value={vehicleModel}
+                                        onChange={(e) => setVehicleModel(e.target.value)}
+                                        placeholder="Ex: Uno, Gol, HB20"
+                                        className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:border-coral focus:outline-none transition-colors"
+                                    />
+                                </div>
+                            </div>
+                            <div className="bg-surface rounded-xl p-3 flex items-start gap-2 text-left">
+                                    <MapPin className="w-4 h-4 text-coral mt-0.5 shrink-0" />
+                                    <div className="flex-1">
+                                        <p className="text-xs font-semibold text-muted uppercase tracking-wide">{t('parking.location')}</p>
+                                        {locationLoading ? (
+                                            <p className="text-sm text-muted flex items-center gap-1.5">
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                Localizando...
+                                            </p>
+                                        ) : locationAddress ? (
+                                            <p className="text-sm text-ink">{locationAddress}</p>
+                                        ) : (
+                                            <p className="text-sm text-muted">Localização não disponível</p>
+                                        )}
+                                    </div>
+                                </div>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => { setStep('capture'); setManualEntry(true); }}
@@ -536,7 +696,69 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                         </div>
                     )}
 
-                    {/* Step 3: Choose duration */}
+                    {/* Step 3: Buyer info */}
+                    {step === 'buyer-info' && (
+                        <div className="space-y-4">
+                            <div className="text-center">
+                                <p className="text-sm text-muted">{t('parking.buyer_desc')}</p>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-sm font-medium text-ink flex items-center gap-1.5 mb-1">
+                                        <User className="w-3.5 h-3.5" />
+                                        {t('parking.buyer_name_label')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={buyerName}
+                                        onChange={(e) => setBuyerName(e.target.value)}
+                                        placeholder="João da Silva"
+                                        className="w-full px-4 py-3 border-2 border-border rounded-xl text-sm focus:border-coral focus:outline-none transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-ink flex items-center gap-1.5 mb-1">
+                                        <CreditCard className="w-3.5 h-3.5" />
+                                        {t('parking.buyer_cpf_label')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={buyerCpf}
+                                        onChange={(e) => setBuyerCpf(formatCpfInput(e.target.value))}
+                                        placeholder="000.000.000-00"
+                                        maxLength={14}
+                                        className="w-full px-4 py-3 border-2 border-border rounded-xl text-sm focus:border-coral focus:outline-none transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-ink flex items-center gap-1.5 mb-1">
+                                        <Mail className="w-3.5 h-3.5" />
+                                        {t('parking.buyer_email_label')}
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={buyerEmail}
+                                        onChange={(e) => setBuyerEmail(e.target.value)}
+                                        placeholder="seu@email.com"
+                                        className="w-full px-4 py-3 border-2 border-border rounded-xl text-sm focus:border-coral focus:outline-none transition-colors"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted text-center">
+                                {t('parking.buyer_disclaimer')}
+                            </p>
+                            <button
+                                onClick={handleConfirmBuyer}
+                                className="w-full py-3 bg-coral text-white rounded-xl font-semibold hover:bg-coral/90 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Check className="w-4 h-4" />
+                                {t('parking.buyer_continue')}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Step 4: Choose duration */}
                     {step === 'duration' && (
                         <div className="space-y-4">
                             <div className="text-center">
@@ -544,8 +766,11 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                 <p className="text-xs text-muted mt-1">
                                     {t('parking.plate_label')}: <span className="font-bold text-ink">{plate}</span>
                                 </p>
+                                <p className="text-xs text-muted mt-0.5">
+                                    R$ 3,00 por hora ou fração • Dom-Qua 8h–19h • Qui-Sab 8h–24h
+                                </p>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                                 {prices.map((option) => (
                                     <button
                                         key={option.duration_minutes}
@@ -577,15 +802,24 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                         </div>
                     )}
 
-                    {/* Step 4: Payment */}
+                    {/* Step 5: Payment */}
                     {step === 'payment' && ticket && (
                         <div className="space-y-4 text-center">
                             {!paymentConfirmed ? (
                                 <>
                                     <p className="text-sm text-muted">{t('parking.pix_desc')}</p>
+                                    {ticket.qr_code_base64 && (
+                                        <div className="flex justify-center">
+                                            <img
+                                                src={`data:image/png;base64,${ticket.qr_code_base64}`}
+                                                alt="QR Code PIX"
+                                                className="w-48 h-48 rounded-xl border border-border"
+                                            />
+                                        </div>
+                                    )}
                                     <div className="bg-surface rounded-xl p-4 space-y-3">
                                         <p className="text-xs text-muted">{t('parking.pix_copy_label')}</p>
-                                        <div className="bg-white rounded-lg p-3 font-mono text-xs break-all border border-border">
+                                        <div className="bg-white rounded-lg p-3 font-mono text-xs break-all border border-border max-h-24 overflow-y-auto">
                                             {ticket.pix_code}
                                         </div>
                                         <button
@@ -600,6 +834,33 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                         {t('parking.waiting_payment')}
                                     </div>
+                                    {/* Dev-only: simulate payment when Edge Function is unavailable */}
+                                    {isMvpFallback && window.location.hostname === 'localhost' && (
+                                        <button
+                                            onClick={() => {
+                                                console.log('[PlateCapture] dev: simulating payment confirmed');
+                                                if (!ticket) { console.warn('[PlateCapture] dev: ticket is null, aborting'); return; }
+                                                const paid = { ...ticket, status: 'paid' as const };
+                                                console.log('[PlateCapture] dev: setting paymentConfirmed, ticket:', paid.id);
+                                                setPaymentConfirmed(true);
+                                                setTicket(paid);
+                                                localStorage.setItem('activeTicket', JSON.stringify(paid));
+                                                window.dispatchEvent(new Event('ticketUpdated'));
+                                                console.log('[PlateCapture] dev: calling onTicketCreated (modal stays open)');
+                                                onTicketCreated?.(paid);
+                                                console.log('[PlateCapture] dev: sending receipt email');
+                                                sendReceiptEmail(paid);
+                                                console.log('[PlateCapture] dev: scheduling setStep(receipt) in 800ms');
+                                                setTimeout(() => {
+                                                    console.log('[PlateCapture] dev: setStep(receipt) firing now');
+                                                    setStep('receipt');
+                                                }, 800);
+                                            }}
+                                            className="w-full py-2 border-2 border-dashed border-amber-400 text-amber-700 rounded-xl text-xs font-semibold hover:bg-amber-50 transition-colors"
+                                        >
+                                            ⚙️ Simular pagamento confirmado (dev)
+                                        </button>
+                                    )}
                                 </>
                             ) : (
                                 <div className="py-4 space-y-3">
@@ -612,9 +873,10 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                         </div>
                     )}
 
-                    {/* Step 5: Receipt */}
+                    {/* Step 6: Receipt */}
                     {step === 'receipt' && ticket && (
                         <div className="space-y-4">
+                            {console.log('[PlateCapture] rendering receipt step', ticket.id, ticket.status)}
                             <div className="text-center space-y-1">
                                 <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
                                     <Check className="w-6 h-6 text-emerald-600" />
@@ -623,15 +885,21 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                             </div>
 
                             <div className="bg-surface rounded-xl p-4 space-y-3">
+                                {ticket.buyer_name && (
+                                    <div className="flex justify-between">
+                                        <span className="text-sm text-muted">{t('parking.buyer_name_label')}</span>
+                                        <span className="font-medium">{ticket.buyer_name}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between">
                                     <span className="text-sm text-muted">{t('parking.plate_label')}</span>
                                     <span className="font-bold tracking-widest">{ticket.plate}</span>
                                 </div>
-                                {(ticket.vehicle_brand || ticket.vehicle_model) && (
+                                {(ticket.vehicle_brand || ticket.vehicle_color) && (
                                     <div className="flex justify-between">
                                         <span className="text-sm text-muted">{t('parking.vehicle_label')}</span>
                                         <span className="font-medium">
-                                            {[ticket.vehicle_color, ticket.vehicle_brand, ticket.vehicle_model].filter(Boolean).join(' ')}
+                                            {[ticket.vehicle_color, ticket.vehicle_brand].filter(Boolean).join(' ')}
                                         </span>
                                     </div>
                                 )}
@@ -639,7 +907,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                     <span className="text-sm text-muted">{t('parking.duration_label')}</span>
                                     <span className="font-medium">
                                         {ticket.duration_minutes >= 60
-                                            ? `${ticket.duration_minutes / 60}h`
+                                            ? `${ticket.duration_minutes / 60}h — ${ticket.duration_minutes / 60} ${ticket.duration_minutes / 60 === 1 ? 'período' : 'períodos'}`
                                             : `${ticket.duration_minutes}min`
                                         }
                                     </span>
@@ -656,7 +924,7 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                 </div>
                                 {ticket.location_description && (
                                     <div className="flex justify-between">
-                                        <span className="text-sm text-muted">{t('parking.location')}</span>
+                                        <span className="text-sm text-muted flex items-center gap-1"><MapPin className="w-3 h-3" />{t('parking.location')}</span>
                                         <span className="font-medium text-sm text-right max-w-[60%]">{ticket.location_description}</span>
                                     </div>
                                 )}
@@ -666,6 +934,15 @@ const PlateCapture: React.FC<PlateCaptureProps> = ({ isOpen, onClose, onTicketCr
                                     </p>
                                 </div>
                             </div>
+
+                            {ticket.buyer_email && (
+                                <div className="bg-blue-50 rounded-xl p-3 flex items-start gap-2">
+                                    <Mail className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                                    <p className="text-xs text-blue-700">
+                                        {t('parking.receipt_email_sent', { email: ticket.buyer_email })}
+                                    </p>
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleClose}

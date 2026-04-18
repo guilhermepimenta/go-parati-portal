@@ -103,9 +103,14 @@ const PatyAgent: React.FC<PatyAgentProps> = ({ onTicketCreated }) => {
         <>
         <PlateCapture
             isOpen={showPlateCapture}
-            onClose={() => setShowPlateCapture(false)}
-            onTicketCreated={(ticket) => {
+            onClose={() => {
+                console.log('[PatyAgent] PlateCapture onClose called');
                 setShowPlateCapture(false);
+            }}
+            onTicketCreated={(ticket) => {
+                // Do NOT close the modal here — PlateCapture will show the receipt step first.
+                // PatyAgent just forwards the event; the user closes the modal via the "Fechar" button.
+                console.log('[PatyAgent] onTicketCreated', ticket.id, ticket.status);
                 onTicketCreated?.(ticket);
             }}
         />

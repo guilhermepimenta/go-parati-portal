@@ -80,7 +80,17 @@
         "timer_active": "Rotativo Ativo",
         "timer_expired": "Rotativo Expirado!",
         "renew": "Renovar",
-        "location": "Local"
+        "location": "Local",
+        "buyer_desc": "Informe seus dados para emissão do comprovante digital.",
+        "buyer_name_label": "Nome completo",
+        "buyer_cpf_label": "CPF",
+        "buyer_email_label": "E-mail",
+        "buyer_disclaimer": "Seus dados são necessários para emissão do comprovante e envio por e-mail.",
+        "buyer_continue": "Continuar",
+        "buyer_name_required": "Informe seu nome completo (mínimo 3 caracteres).",
+        "buyer_cpf_invalid": "CPF inválido. Verifique os números.",
+        "buyer_email_invalid": "E-mail inválido.",
+        "receipt_email_sent": "Comprovante enviado para {{email}}"
     },
     "pwa": {
         "update_available": "Atualização Disponível",

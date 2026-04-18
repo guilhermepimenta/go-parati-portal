@@ -14,6 +14,8 @@ const ActiveTicket: React.FC<ActiveTicketProps> = ({ onRenew }) => {
     const [urgent, setUrgent] = useState(false);
     const [expired, setExpired] = useState(false);
     const [dismissed, setDismissed] = useState(false);
+    // ms remaining — used to force-show the banner in the last 5 minutes even after dismiss
+    const [msLeft, setMsLeft] = useState<number>(Infinity);
 
     // Load ticket from localStorage
     useEffect(() => {
@@ -41,9 +43,13 @@ const ActiveTicket: React.FC<ActiveTicketProps> = ({ onRenew }) => {
             const stored = localStorage.getItem('activeTicket');
             if (stored) {
                 try {
-                    setTicket(JSON.parse(stored));
-                    setDismissed(false);
-                    setExpired(false);
+                    const parsed: ParkingTicket = JSON.parse(stored);
+                    // Only show the timer for paid tickets
+                    if (parsed.status === 'paid') {
+                        setTicket(parsed);
+                        setDismissed(false);
+                        setExpired(false);
+                    }
                 } catch { /* ignore */ }
             } else {
                 setTicket(null);
@@ -64,6 +70,8 @@ const ActiveTicket: React.FC<ActiveTicketProps> = ({ onRenew }) => {
         const expiresAt = new Date(ticket.expires_at).getTime();
         const now = Date.now();
         const diff = expiresAt - now;
+
+        setMsLeft(diff);
 
         if (diff <= 0) {
             setTimeLeft('00:00');
@@ -94,7 +102,10 @@ const ActiveTicket: React.FC<ActiveTicketProps> = ({ onRenew }) => {
         }
     };
 
-    if (!ticket || dismissed) return null;
+    // Force-show the banner when ≤5 minutes remain, regardless of dismiss
+    const lastFiveMinutes = msLeft > 0 && msLeft <= 5 * 60 * 1000;
+
+    if (!ticket || (dismissed && !lastFiveMinutes)) return null;
 
     return (
         <div className={`fixed top-4 left-4 right-4 z-[55] sm:left-auto sm:right-4 sm:max-w-xs animate-in slide-in-from-top-4 duration-300`}>
@@ -120,9 +131,12 @@ const ActiveTicket: React.FC<ActiveTicketProps> = ({ onRenew }) => {
                             <p className="text-xs font-medium text-muted">
                                 {expired ? t('parking.timer_expired') : t('parking.timer_active')}
                             </p>
-                            <button onClick={handleDismiss} className="p-0.5 hover:bg-black/5 rounded">
-                                <X className="w-3.5 h-3.5 text-muted" />
-                            </button>
+                            {/* Hide X button in the last 5 minutes — banner is mandatory */}
+                            {!lastFiveMinutes && (
+                                <button onClick={handleDismiss} className="p-0.5 hover:bg-black/5 rounded">
+                                    <X className="w-3.5 h-3.5 text-muted" />
+                                </button>
+                            )}
                         </div>
                         <div className="flex items-baseline gap-2 mt-0.5">
                             <span className={`text-2xl font-black tabular-nums ${

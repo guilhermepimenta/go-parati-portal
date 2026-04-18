@@ -80,7 +80,17 @@
         "timer_active": "Parking Active",
         "timer_expired": "Parking Expired!",
         "renew": "Renew",
-        "location": "Location"
+        "location": "Location",
+        "buyer_desc": "Enter your details to issue the digital receipt.",
+        "buyer_name_label": "Full name",
+        "buyer_cpf_label": "CPF (Tax ID)",
+        "buyer_email_label": "Email",
+        "buyer_disclaimer": "Your data is required to issue the receipt and send it via email.",
+        "buyer_continue": "Continue",
+        "buyer_name_required": "Please enter your full name (minimum 3 characters).",
+        "buyer_cpf_invalid": "Invalid CPF. Please check the numbers.",
+        "buyer_email_invalid": "Invalid email address.",
+        "receipt_email_sent": "Receipt sent to {{email}}"
     },
     "pwa": {
         "update_available": "Update Available",
