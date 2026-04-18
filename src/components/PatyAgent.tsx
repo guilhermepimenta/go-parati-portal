@@ -2,11 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import PlateCapture from './PlateCapture';
+import type { ParkingTicket } from '../types';
 
-const PatyAgent: React.FC = () => {
+interface PatyAgentProps {
+    onTicketCreated?: (ticket: ParkingTicket) => void;
+}
+
+const PatyAgent: React.FC<PatyAgentProps> = ({ onTicketCreated }) => {
     const { t } = useTranslation();
     const [isVisible, setIsVisible] = useState(false);
     const [showBubble, setShowBubble] = useState(false);
+    const [showPlateCapture, setShowPlateCapture] = useState(false);
 
     // Typewriter State
     const [headerText, setHeaderText] = useState("");
@@ -87,11 +94,26 @@ const PatyAgent: React.FC = () => {
 
     if (!isVisible) return null;
 
-    const whatsappNumber = "5524999999999"; // Placeholder
-    const message = encodeURIComponent("Olá Agente Paty! Estacionei agora e gostaria de comprar um ticket do Rotativo.");
-    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${message}`;
+    const handleAvatarClick = () => {
+        setShowBubble(false);
+        setShowPlateCapture(true);
+    };
 
     return (
+        <>
+        <PlateCapture
+            isOpen={showPlateCapture}
+            onClose={() => {
+                console.log('[PatyAgent] PlateCapture onClose called');
+                setShowPlateCapture(false);
+            }}
+            onTicketCreated={(ticket) => {
+                // Do NOT close the modal here — PlateCapture will show the receipt step first.
+                // PatyAgent just forwards the event; the user closes the modal via the "Fechar" button.
+                console.log('[PatyAgent] onTicketCreated', ticket.id, ticket.status);
+                onTicketCreated?.(ticket);
+            }}
+        />
 
         <div className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-4 z-50 md:hidden flex flex-col items-end gap-1 transition-all duration-500 ease-in-out ${showOnScroll && isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
 
@@ -120,18 +142,15 @@ const PatyAgent: React.FC = () => {
             )}
 
             {/* Avatar Button */}
-            <a
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative group cursor-pointer"
-                onClick={() => setShowBubble(false)} // Close bubble on click
+            <button
+                onClick={handleAvatarClick}
+                className="relative group cursor-pointer w-14 h-14"
             >
                 {/* Pulse Effect */}
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-25 animate-ping"></span>
+                <span className="absolute inset-0 rounded-full bg-emerald-400 opacity-25 animate-ping"></span>
 
                 {/* Image Container */}
-                <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-0.5 shadow-lg shadow-emerald-500/30 overflow-hidden border-2 border-white">
+                <div className="relative w-full h-full rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 p-0.5 shadow-lg shadow-emerald-500/30 overflow-hidden border-2 border-white">
                     {/* Paty Avatar */}
                     <img
                         src="/paty-avatar.png"
@@ -142,8 +161,9 @@ const PatyAgent: React.FC = () => {
 
                 {/* Status Indicator */}
                 <span className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-green-500 border-2 border-white rounded-full z-10"></span>
-            </a>
+            </button>
         </div>
+        </>
     );
 };
 
