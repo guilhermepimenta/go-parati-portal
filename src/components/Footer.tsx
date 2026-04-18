@@ -63,6 +63,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate, currentUser, onLogin, onOpe
                         <ul className="space-y-4 text-sm font-medium font-sans">
                             <li><button onClick={() => onNavigate('history')} className="hover:text-coral transition-colors">{t('categories.historia')}</button></li>
                             <li><button onClick={() => onNavigate('adventure')} className="hover:text-coral transition-colors">{t('categories.aventura')}</button></li>
+                            <li><button onClick={() => onNavigate('blog')} className="hover:text-coral transition-colors">Blog</button></li>
                             <li><button onClick={() => onNavigate('totems')} className="text-ocean hover:text-ocean/80 transition-colors font-bold">{t('footer.totems')}</button></li>
                             <li className="pt-4">
                                 <FooterMap onOpenMap={onOpenMap} />

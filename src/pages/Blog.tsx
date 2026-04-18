@@ -29,6 +29,7 @@ interface BlogProps {
 }
 
 const Blog: React.FC<BlogProps> = ({ onNavigate, onBack }) => {
+  console.log('[Blog] Componente montado');
   const { t } = useTranslation();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,18 +37,28 @@ const Blog: React.FC<BlogProps> = ({ onNavigate, onBack }) => {
   const [selectedCategory, setSelectedCategory] = useState<BlogCategory | ''>('');
 
   useEffect(() => {
+    console.log('[Blog] useEffect chamado');
     fetchPosts();
   }, []);
 
   const fetchPosts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('blog_posts')
-      .select('id, title, slug, excerpt, cover_image_url, category, author_name, ai_generated, published_at, created_at')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false });
-
-    if (!error && data) setPosts(data as BlogPost[]);
+    try {
+      console.log('[Blog] Antes do fetch Supabase');
+      const { data, error } = await supabase
+        .from('blog_posts')
+        .select('id, title, slug, excerpt, cover_image_url, category, author_name, ai_generated, published_at, created_at')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false });
+      console.log('[Blog] Depois do fetch Supabase');
+      console.log('[Blog] fetchPosts result:', { data, error });
+      if (error) {
+        console.error('[Blog] Erro ao buscar posts:', error);
+      }
+      if (!error && data) setPosts(data as BlogPost[]);
+    } catch (e) {
+      console.error('[Blog] Exceção inesperada em fetchPosts:', e);
+    }
     setLoading(false);
   };
 
