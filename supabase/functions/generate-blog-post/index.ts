@@ -390,7 +390,11 @@ async function callGemini(apiKey: string, prompt: string, temperature: number): 
   })
   const data = await resp.json()
   if (!resp.ok) throw new Error(data.error?.message || 'Gemini API error')
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  // Gemini 2.5 Flash may return thinking tokens in earlier parts;
+  // extract the last non-empty text part which contains the actual response.
+  const parts: { text?: string }[] = data.candidates?.[0]?.content?.parts || []
+  const text = parts.filter(p => p.text).map(p => p.text).pop() || ''
+  return text
 }
 
 // Calls Gemini with Google Search Grounding enabled.
@@ -413,7 +417,9 @@ async function callGeminiWithSearch(
   if (!resp.ok) throw new Error(data.error?.message || 'Gemini API error')
 
   const candidate = data.candidates?.[0]
-  const text = candidate?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || ''
+  // Gemini 2.5 Flash may include thinking tokens in earlier parts; use the last non-empty text part.
+  const allParts: { text?: string }[] = candidate?.content?.parts || []
+  const text = allParts.filter(p => p.text).map(p => p.text).pop() || ''
   const meta = candidate?.groundingMetadata || {}
 
   const webSources: { uri: string; title: string }[] = (meta.groundingChunks || [])
