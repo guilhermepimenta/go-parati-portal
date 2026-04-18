@@ -8,7 +8,8 @@ import {
   Palmtree,
   Landmark,
   Compass,
-  Ticket
+  Ticket,
+  FileText
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Logo from './Logo';
@@ -41,6 +42,7 @@ const Navbar: React.FC<NavbarProps> = ({
     { id: 'history', label: t('nav.history'), icon: Landmark, color: 'text-amber-500', microCopy: t('nav.culture') },
     { id: 'adventure', label: t('nav.adventure'), icon: Palmtree, color: 'text-emerald-500', microCopy: t('nav.trails') },
     { id: 'totems', label: t('nav.totems'), icon: MapPin, special: true, color: 'text-coral', microCopy: t('nav.skip_lines') },
+    { id: 'blog', label: 'Blog', icon: FileText, color: 'text-violet-500' },
   ];
 
   return (
