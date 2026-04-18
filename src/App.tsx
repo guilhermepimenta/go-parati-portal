@@ -6,6 +6,9 @@ import { Advertise } from './components/Advertise';
 import { TermsOfUse, PrivacyPolicy, HelpCenter } from './components/LegalPages';
 import Home from './pages/Home';
 import ReloadPrompt from './components/ReloadPrompt';
+import ActiveTicket from './components/ActiveTicket';
+import Blog from './pages/Blog';
+import BlogPostPage from './pages/BlogPost';
 
 import { authService } from './auth';
 import { Business, UserLocation, User } from './types';
@@ -192,6 +195,11 @@ const App: React.FC = () => {
   if (currentView === 'help') return <HelpCenter onBack={() => setCurrentView('home')} />;
   if (currentView === 'terms') return <TermsOfUse onBack={() => setCurrentView('home')} />;
   if (currentView === 'privacy') return <PrivacyPolicy onBack={() => setCurrentView('home')} />;
+  if (currentView === 'blog') return <Blog onNavigate={handleNavigate} onBack={() => setCurrentView('home')} />;
+  if (currentView.startsWith('blog/')) {
+    const blogSlug = currentView.split('/').slice(1).join('/');
+    return <BlogPostPage slug={blogSlug} onNavigate={handleNavigate} onBack={() => setCurrentView('blog')} />;
+  }
 
   // Default to Home
   return (
@@ -204,6 +212,7 @@ const App: React.FC = () => {
         onLoginClick={() => currentUser ? setCurrentView('dashboard') : setShowLogin(true)}
         initialView={currentView}
       />
+      <ActiveTicket />
       <ReloadPrompt />
     </>
   );

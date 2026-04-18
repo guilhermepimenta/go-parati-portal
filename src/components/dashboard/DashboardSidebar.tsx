@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Store, Users, FileCheck, Calendar, Settings, LogOut,
-    MapPin, List, Mail, ChevronRight, BarChart3
+    MapPin, List, Mail, ChevronRight, BarChart3, FileText
 } from 'lucide-react';
 import Logo from '../Logo';
 import { User } from '../../types';
@@ -28,6 +28,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         { id: 'events', label: 'Eventos', icon: Calendar },
         { id: 'totems', label: 'Totens', icon: MapPin },
         { id: 'categories', label: 'Categorias', icon: List },
+        ...(user.role === 'admin' ? [{ id: 'blog', label: 'Blog', icon: FileText }] : []),
         ...(user.role === 'admin' ? [{ id: 'users', label: 'Usuários', icon: Users }] : []),
         ...(user.role === 'admin' ? [{ id: 'leads', label: 'Propostas', icon: Mail }] : []),
         ...(user.role === 'admin' ? [{ id: 'approvals', label: `Aprovações (${pendingCount})`, icon: FileCheck }] : []),
