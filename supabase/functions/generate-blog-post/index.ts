@@ -159,6 +159,74 @@ serve(async (req) => {
       })
     }
 
+    // ── ACTION: web-grounded-generate ──
+    // Uses Google Search Grounding to research the topic on the web in real-time,
+    // then generates a blog post grounded on those web sources (3-pass pipeline).
+    if (action === 'web-grounded-generate') {
+      const {
+        topic,
+        category = 'turismo',
+        language = 'pt-BR',
+        tone = 'informativo',
+      } = body
+
+      if (!topic || topic.trim().length < 5) {
+        throw new Error('Forneça um tópico com pelo menos 5 caracteres')
+      }
+
+      // Pass 1 — Web Research: let Gemini search the web and summarize findings
+      const researchPrompt = `${PARATY_CONTEXT}
+
+TAREFA DE PESQUISA: Pesquise informações atualizadas e específicas sobre o tema abaixo relacionado a Paraty, RJ.
+Compile os fatos mais relevantes, dados práticos (preços, horários, localização), novidades recentes e detalhes que enriquecerão um artigo de blog para turistas.
+
+TEMA: ${topic}
+
+Escreva um resumo estruturado em português com os fatos encontrados. Seja específico e factual.`
+
+      const research = await callGeminiWithSearch(GEMINI_API_KEY, researchPrompt, 0.5)
+
+      // Build grounding block from web research
+      const webGroundingBlock = research.text
+        ? `\n\nPESQUISA WEB ATUALIZADA (use como fundamento factual — dados reais e recentes):\n${research.text}\n`
+        : ''
+
+      // Pass 2 — Blog Generation: generate structured JSON post using research as context
+      const pass2Prompt = buildGeneratePrompt(topic, category, language, tone, webGroundingBlock)
+      const pass2Raw = await callGemini(GEMINI_API_KEY, pass2Prompt, 0.75)
+      const pass2 = parseGeminiJSON(pass2Raw)
+
+      const draftContent = (pass2.content as string) || ''
+      const draftTitle = (pass2.title as string) || topic
+
+      // Pass 3 — Refinement: improve flow, intro hook and CTA
+      const webSourcesAsRefs = research.webSources.slice(0, 4).map(s => ({
+        title: s.title,
+        content: `Fonte: ${s.uri}`,
+      }))
+      const pass3Prompt = buildRefinementPrompt(draftContent, webSourcesAsRefs)
+      const refinedContent = await callGemini(GEMINI_API_KEY, pass3Prompt, 0.65)
+
+      const title = draftTitle
+      const slug = slugify(title) + '-' + Date.now().toString(36)
+
+      return jsonResponse({
+        title,
+        slug,
+        excerpt: pass2.excerpt || '',
+        content: refinedContent,
+        meta_description: pass2.meta_description || pass2.excerpt || '',
+        tags: pass2.tags || [],
+        category,
+        suggested_image_query: pass2.suggested_image_query || '',
+        ai_generated: true,
+        grounded: true,
+        grounding_type: 'web_search',
+        web_sources: research.webSources,
+        search_queries: research.searchQueries,
+      })
+    }
+
     // ── ACTION: generate-and-save ──
     // Generates (optionally grounded) and saves directly to Supabase
     if (action === 'generate-and-save') {
@@ -169,16 +237,19 @@ serve(async (req) => {
         tone = 'informativo',
         auto_publish = false,
         use_grounding = false,
+        use_web_search = false,
       } = body
 
-      const generateAction = use_grounding ? 'grounded-generate' : 'generate'
+      const generateAction = use_web_search
+        ? 'web-grounded-generate'
+        : use_grounding ? 'grounded-generate' : 'generate'
       const generateResp = await fetch(req.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': req.headers.get('Authorization') || '',
         },
-        body: JSON.stringify({ action: generateAction, topic, category, language, tone }),
+        body: JSON.stringify({ action: generateAction, topic, category, language, tone, use_grounding }),
       })
 
       if (!generateResp.ok) {
@@ -219,7 +290,10 @@ serve(async (req) => {
         success: true,
         post,
         grounded: generated.grounded ?? false,
+        grounding_type: generated.grounding_type ?? (generated.grounded ? 'knowledge_base' : 'none'),
         sources_used: generated.sources_used ?? [],
+        web_sources: generated.web_sources ?? [],
+        search_queries: generated.search_queries ?? [],
         message: auto_publish ? 'Post gerado e publicado' : 'Post gerado como rascunho',
       })
     }
@@ -317,6 +391,41 @@ async function callGemini(apiKey: string, prompt: string, temperature: number): 
   const data = await resp.json()
   if (!resp.ok) throw new Error(data.error?.message || 'Gemini API error')
   return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+}
+
+// Calls Gemini with Google Search Grounding enabled.
+// Returns the generated text plus structured web source metadata.
+async function callGeminiWithSearch(
+  apiKey: string,
+  prompt: string,
+  temperature: number
+): Promise<{ text: string; webSources: { uri: string; title: string }[]; searchQueries: string[] }> {
+  const resp = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }],
+      generationConfig: { temperature, maxOutputTokens: 8192, topP: 0.95 },
+    }),
+  })
+  const data = await resp.json()
+  if (!resp.ok) throw new Error(data.error?.message || 'Gemini API error')
+
+  const candidate = data.candidates?.[0]
+  const text = candidate?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') || ''
+  const meta = candidate?.groundingMetadata || {}
+
+  const webSources: { uri: string; title: string }[] = (meta.groundingChunks || [])
+    .filter((c: { web?: { uri?: string; title?: string } }) => c.web?.uri)
+    .map((c: { web: { uri: string; title?: string } }) => ({
+      uri: c.web.uri,
+      title: c.web.title || c.web.uri,
+    }))
+
+  const searchQueries: string[] = meta.webSearchQueries || []
+
+  return { text, webSources, searchQueries }
 }
 
 function parseGeminiJSON(raw: string): Record<string, unknown> {
