@@ -69,13 +69,23 @@ const BlogEditor: React.FC = () => {
 
   const fetchPosts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('blog_posts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('blog_posts')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (!error && data) setPosts(data as BlogPost[]);
-    setLoading(false);
+      if (error) {
+        console.error('[Blog] fetchPosts error:', error);
+        setError(`Erro ao carregar posts: ${error.message}`);
+      } else {
+        setPosts((data ?? []) as BlogPost[]);
+      }
+    } catch (e) {
+      console.error('[Blog] fetchPosts exception:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredPosts = posts.filter(p =>
@@ -175,7 +185,11 @@ const BlogEditor: React.FC = () => {
         body: { action: 'generate', topic: aiTopic, category: aiCategory },
       });
 
-      if (fnErr) throw fnErr;
+      if (fnErr) {
+        // Extract the actual error message from the function response body
+        const body = await (fnErr as any).context?.json?.().catch(() => null);
+        throw new Error(body?.error || fnErr.message);
+      }
 
       // Populate form with AI output
       setTitle(data.title || '');
@@ -208,7 +222,10 @@ const BlogEditor: React.FC = () => {
         body: { action: 'improve', content },
       });
 
-      if (fnErr) throw fnErr;
+      if (fnErr) {
+        const body = await (fnErr as any).context?.json?.().catch(() => null);
+        throw new Error(body?.error || fnErr.message);
+      }
       setContent(data.content || content);
       setSuccess('Texto melhorado pela IA!');
       setTimeout(() => setSuccess(''), 3000);

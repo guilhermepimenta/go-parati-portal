@@ -42,12 +42,9 @@ export const analytics = {
                     metadata: params.metadata || {}
                 }]);
 
-            if (error) {
-                // Silently fail to not interrupt user experience
-                console.warn('Analytics log failed:', error);
-            }
-        } catch (e) {
-            console.warn('Analytics unexpected error:', e);
+            // Silently fail — analytics_events table may not exist yet
+        } catch {
+            // Silently fail
         }
     },
 

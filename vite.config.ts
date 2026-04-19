@@ -57,6 +57,10 @@ export default defineConfig({
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
             handler: 'NetworkOnly'
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*/i,
+            handler: 'NetworkOnly'
           }
         ]
       },
@@ -101,7 +105,7 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        enabled: true
+        enabled: false
       }
     })
   ],
