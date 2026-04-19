@@ -1,132 +1,115 @@
 import { supabase } from './supabase';
 import { User, UserRole } from './types';
 
-// Helper to map Supabase User to our App User
-const mapSupabaseUser = async (sbUser: any): Promise<User | null> => {
-    if (!sbUser) return null;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-    console.log('[Auth] mapSupabaseUser started for:', sbUser.id);
-    let profile = null;
+// Fetch profile via direct REST (bypasses SDK auth state issues)
+async function fetchProfileDirect(userId: string, accessToken: string): Promise<any> {
     try {
-        console.log('[Auth] Starting profile fetch logic...');
-        // Create a promise for the DB fetch
-        const dbPromise = supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sbUser.id)
-            .single();
-
-        // Create a promise for timeout (2 seconds)
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*&limit=1`,
+            {
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${accessToken}`,
+                },
+            }
         );
-
-        console.log('[Auth] Awaiting Promise.race([db, timeout])...');
-        // Race them
-        const raceResult = await Promise.race([dbPromise, timeoutPromise]) as any;
-        console.log('[Auth] Promise.race completed. Result:', raceResult);
-
-        const { data, error } = raceResult;
-
-        if (error) {
-            console.warn('[Auth] Profile fetch warning:', error);
-            // If error is not "no rows found", we still proceed with auth user data
-        }
-        profile = data;
-        console.log('[Auth] Profile found:', profile);
-    } catch (err) {
-        console.error('[Auth] Exception fetching profile (or timeout):', err);
-        // Fallback: Proceed without profile data if it times out or errors
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        return data?.[0] ?? null;
+    } catch {
+        return null;
     }
+}
 
-    console.log('[Auth] Returning mapped user object...');
+// Store session in localStorage in Supabase's expected format
+function storeSession(supabaseUrl: string, session: any) {
+    const projectId = new URL(supabaseUrl).hostname.split('.')[0];
+    const storageKey = `sb-${projectId}-auth-token`;
+    localStorage.setItem(storageKey, JSON.stringify(session));
+}
+
+// Build app User from auth response + profile
+function buildUser(authUser: any, profile: any): User {
     return {
-        id: sbUser.id,
-        email: sbUser.email || '',
-        name: profile?.name || sbUser.email?.split('@')[0] || 'User',
-        role: (profile?.role as UserRole) || (sbUser.email === 'admin@paraty.com' ? 'admin' : 'user'),
+        id: authUser.id,
+        email: authUser.email || '',
+        name: profile?.name || authUser.email?.split('@')[0] || 'User',
+        role: (profile?.role as UserRole) || 'user',
     };
-};
+}
 
 class AuthService {
-    // Login with Email/Password
+    // Login with Email/Password — uses direct fetch to avoid SDK signInWithPassword hanging
     async login(email: string, password: string): Promise<User> {
         console.log('[Auth] login called with:', email);
-        // Timeout for the sign-in request itself
-        const signInPromise = supabase.auth.signInWithPassword({
-            email,
-            password,
+        console.log('[Auth] Making direct fetch to auth endpoint...');
+        let authResp: Response;
+        try {
+            authResp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+                body: JSON.stringify({ email, password }),
+            });
+        } catch (fetchErr) {
+            console.error('[Auth] Network error:', fetchErr);
+            throw new Error('Não foi possível conectar ao servidor.');
+        }
+
+        const authData = await authResp.json();
+        console.log('[Auth] Auth response status:', authResp.status);
+
+        if (!authResp.ok) {
+            throw new Error(authData.error_description || authData.msg || authData.error || 'Credenciais inválidas');
+        }
+
+        // Store session in localStorage so Supabase SDK picks it up for DB queries
+        storeSession(SUPABASE_URL, {
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+            expires_at: authData.expires_at,
+            expires_in: authData.expires_in,
+            token_type: authData.token_type,
+            user: authData.user,
         });
 
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Sign-in request timed out')), 5000)
-        );
+        // Fetch profile via direct REST (no SDK auth calls)
+        const profile = await fetchProfileDirect(authData.user.id, authData.access_token);
+        console.log('[Auth] Profile:', profile);
 
-        console.log('[Auth] Awaiting signInWithPassword with timeout...');
-        let raceResult: any;
-        try {
-            raceResult = await Promise.race([signInPromise, timeoutPromise]);
-        } catch (error) {
-            console.error('[Auth] Race failed (timeout or error):', error);
-
-            // ATTEMPT RECOVERY: Direct LocalStorage Check
-            // Bypassing usage of Supabase SDK entirely to avoid deadlock/abort errors.
-            console.log('[Auth] Attempting recovery: checking LocalStorage directly...');
-            try {
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                if (!supabaseUrl) throw new Error('No Supabase URL');
-
-                // Extract project ID from URL (e.g., https://xyz.supabase.co -> xyz)
-                const projectId = new URL(supabaseUrl).hostname.split('.')[0];
-                const storageKey = `sb-${projectId}-auth-token`;
-
-                const storedSessionStr = localStorage.getItem(storageKey);
-                if (storedSessionStr) {
-                    const storedSession = JSON.parse(storedSessionStr);
-                    if (storedSession?.user && storedSession?.access_token) {
-                        console.log('[Auth] RECOVERY SUCCESSFUL! Found session in LocalStorage.', storedSession.user.id);
-                        raceResult = { data: { user: storedSession.user }, error: null };
-                    } else {
-                        throw new Error('Invalid session format in local storage');
-                    }
-                } else {
-                    console.error('[Auth] Recovery failed. No session in LocalStorage.');
-                    throw error;
-                }
-            } catch (recoveryErr) {
-                console.error('[Auth] Critical recovery failure:', recoveryErr);
-                throw error;
-            }
-        }
-
-        console.log('[Auth] Race completed (or recovered).');
-        const { data, error } = raceResult;
-
-        if (error) {
-            console.error('[Auth] Supabase signInWithPassword error:', error);
-            throw error;
-        }
-        console.log('[Auth] Supabase signIn successful, user:', data.user?.id);
-
-        console.log('[Auth] Calling mapSupabaseUser...');
-        const user = await mapSupabaseUser(data.user);
-
-        console.log('[Auth] mapSupabaseUser returned:', user);
-        if (!user) throw new Error('Falha ao recuperar perfil do usuário');
+        const user = buildUser(authData.user, profile);
+        console.log('[Auth] Login complete:', user);
         return user;
     }
 
     // Logout
     async logout(): Promise<void> {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        // Clear localStorage session
+        const projectId = new URL(SUPABASE_URL).hostname.split('.')[0];
+        localStorage.removeItem(`sb-${projectId}-auth-token`);
+        await supabase.auth.signOut().catch(() => {});
     }
 
-    // Get Current Session User
+    // Get Current Session User — reads from localStorage, no network calls
     async getCurrentUser(): Promise<User | null> {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return null;
-        return mapSupabaseUser(session.user);
+        const projectId = new URL(SUPABASE_URL).hostname.split('.')[0];
+        const stored = localStorage.getItem(`sb-${projectId}-auth-token`);
+        if (!stored) return null;
+        try {
+            const session = JSON.parse(stored);
+            if (!session?.access_token || !session?.user) return null;
+            // Check expiry
+            if (session.expires_at && session.expires_at < Math.floor(Date.now() / 1000)) {
+                localStorage.removeItem(`sb-${projectId}-auth-token`);
+                return null;
+            }
+            const profile = await fetchProfileDirect(session.user.id, session.access_token);
+            return buildUser(session.user, profile);
+        } catch {
+            return null;
+        }
     }
 
     // Sign Up (Optional Usage)
@@ -152,7 +135,9 @@ class AuthService {
             if (profileError) console.error('Error creating profile:', profileError);
         }
 
-        return mapSupabaseUser(data.user);
+        if (!data.user) return null;
+        const profile = await fetchProfileDirect(data.user.id, '');
+        return buildUser(data.user, profile);
     }
 
     // Reset Password via Email
