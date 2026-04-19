@@ -42,6 +42,8 @@ const Home: React.FC<HomeProps> = ({
     // Local State
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [featuredEvent, setFeaturedEvent] = useState<FeaturedEvent | null>(null);
+    const [featuredEvents, setFeaturedEvents] = useState<FeaturedEvent[]>([]);
+    const [carouselIndex, setCarouselIndex] = useState(0);
     const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -60,13 +62,14 @@ const Home: React.FC<HomeProps> = ({
         const loadData = async () => {
             setIsLoading(true);
             try {
-                const [fetchedBusinesses, fetchedEvent, fetchedSettings] = await Promise.all([
+                const [fetchedBusinesses, fetchedEvents, fetchedSettings] = await Promise.all([
                     api.getBusinesses(),
-                    api.getFeaturedEvent(),
+                    api.getFeaturedEvents(),
                     api.getSiteSettings()
                 ]);
                 setBusinesses(fetchedBusinesses);
-                setFeaturedEvent(fetchedEvent);
+                setFeaturedEvents(fetchedEvents);
+                setFeaturedEvent(fetchedEvents[0] ?? null);
                 if (fetchedSettings) setSiteSettings(fetchedSettings);
             } catch (error) {
                 console.error("Failed to load home data", error);
@@ -77,7 +80,17 @@ const Home: React.FC<HomeProps> = ({
         loadData();
     }, []);
 
-    // Update logic based on props
+    // Carousel auto-rotate
+    useEffect(() => {
+        if (featuredEvents.length <= 1) return;
+        const timer = setInterval(() => {
+            setCarouselIndex(i => (i + 1) % featuredEvents.length);
+        }, 5000);
+        return () => clearInterval(timer);
+    }, [featuredEvents.length]);
+
+    const activeEvent = featuredEvents[carouselIndex] ?? featuredEvent;
+
     // Update logic based on props
     useEffect(() => {
         if (initialView === 'totems') {
@@ -378,40 +391,72 @@ const Home: React.FC<HomeProps> = ({
                 {initialView === 'home' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
                         <div className="lg:col-span-9">
-                            {featuredEvent && featuredEvent.isActive && (
-                                <div className="bg-white rounded-[32px] overflow-hidden shadow-xl shadow-colonial-coffee/5 border border-colonial-stone flex flex-col md:flex-row animate-in fade-in slide-in-from-bottom-6 duration-700 h-full">
-                                    <div className="md:w-2/5 h-[300px] md:h-auto relative">
-                                        <img
-                                            src={featuredEvent.imageUrl}
-                                            className="w-full h-full object-cover"
-                                            alt={featuredEvent.title}
-                                        />
-                                        <div className="absolute top-6 left-6">
-                                            <span className="px-3 py-1 bg-coral text-white text-[10px] font-bold rounded-full shadow-lg tracking-wide uppercase">Destaque</span>
+                            {activeEvent && activeEvent.isActive && (
+                                <div className="relative h-full">
+                                    <div className="bg-white rounded-[32px] overflow-hidden shadow-xl shadow-colonial-coffee/5 border border-colonial-stone flex flex-col md:flex-row animate-in fade-in duration-500 h-full">
+                                        <div className="md:w-2/5 h-[300px] md:h-auto relative">
+                                            <img
+                                                src={activeEvent.imageUrl}
+                                                className="w-full h-full object-cover"
+                                                alt={activeEvent.title}
+                                            />
+                                            <div className="absolute top-6 left-6">
+                                                <span className="px-3 py-1 bg-coral text-white text-[10px] font-bold rounded-full shadow-lg tracking-wide uppercase">Destaque</span>
+                                            </div>
+                                        </div>
+                                        <div className="md:w-3/5 p-8 flex flex-col justify-center">
+                                            <h3 className="text-2xl md:text-3xl font-extrabold text-ink mb-4 leading-tight font-serif italic">{activeEvent.title}</h3>
+                                            <p className="text-slate-500 mb-6 leading-relaxed line-clamp-3">
+                                                {activeEvent.description}
+                                            </p>
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <button
+                                                    onClick={() => setIsScheduleModalOpen(true)}
+                                                    className="flex-1 px-6 py-3 bg-ink text-white font-bold rounded-xl hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-black/10 flex items-center justify-center gap-2"
+                                                >
+                                                    {activeEvent.buttonText}
+                                                    <Sparkles className="w-4 h-4 text-amber-400" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setIsGoogleCalendarModalOpen(true)}
+                                                    className="p-3 bg-surface-sand text-slate-400 hover:text-emerald-500 rounded-xl border-2 border-border hover:border-emerald-500 hover:bg-white transition-all active:scale-95 shadow-sm"
+                                                    title="Adicionar ao Calendário"
+                                                >
+                                                    <CalendarPlus className="w-6 h-6" />
+                                                </button>
+                                            </div>
+                                            {/* Carousel dots — only shown when multiple events */}
+                                            {featuredEvents.length > 1 && (
+                                                <div className="flex items-center gap-2 mt-5">
+                                                    {featuredEvents.map((_, i) => (
+                                                        <button
+                                                            key={i}
+                                                            onClick={() => setCarouselIndex(i)}
+                                                            className={`rounded-full transition-all duration-300 ${i === carouselIndex ? 'w-6 h-2 bg-ink' : 'w-2 h-2 bg-slate-300 hover:bg-slate-400'}`}
+                                                        />
+                                                    ))}
+                                                    <span className="ml-2 text-xs text-slate-400">{carouselIndex + 1}/{featuredEvents.length}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="md:w-3/5 p-8 flex flex-col justify-center">
-                                        <h3 className="text-2xl md:text-3xl font-extrabold text-ink mb-4 leading-tight font-serif italic">{featuredEvent.title}</h3>
-                                        <p className="text-slate-500 mb-6 leading-relaxed line-clamp-3">
-                                            {featuredEvent.description}
-                                        </p>
-                                        <div className="flex flex-wrap items-center gap-3">
+                                    {/* Prev/Next arrows — only when multiple events */}
+                                    {featuredEvents.length > 1 && (
+                                        <>
                                             <button
-                                                onClick={() => setIsScheduleModalOpen(true)}
-                                                className="flex-1 px-6 py-3 bg-ink text-white font-bold rounded-xl hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-black/10 flex items-center justify-center gap-2"
+                                                onClick={() => setCarouselIndex(i => (i - 1 + featuredEvents.length) % featuredEvents.length)}
+                                                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center text-ink transition-all hover:scale-110 z-10"
                                             >
-                                                {featuredEvent.buttonText}
-                                                <Sparkles className="w-4 h-4 text-amber-400" />
+                                                ‹
                                             </button>
                                             <button
-                                                onClick={() => setIsGoogleCalendarModalOpen(true)}
-                                                className="p-3 bg-surface-sand text-slate-400 hover:text-emerald-500 rounded-xl border-2 border-border hover:border-emerald-500 hover:bg-white transition-all active:scale-95 shadow-sm"
-                                                title="Adicionar ao Calendário"
+                                                onClick={() => setCarouselIndex(i => (i + 1) % featuredEvents.length)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center text-ink transition-all hover:scale-110 z-10"
                                             >
-                                                <CalendarPlus className="w-6 h-6" />
+                                                ›
                                             </button>
-                                        </div>
-                                    </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>

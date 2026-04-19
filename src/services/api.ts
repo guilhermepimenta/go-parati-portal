@@ -21,30 +21,32 @@ export const api = {
     },
 
     getFeaturedEvent: async (): Promise<FeaturedEvent | null> => {
+        const events = await api.getFeaturedEvents();
+        return events[0] ?? null;
+    },
+
+    getFeaturedEvents: async (): Promise<FeaturedEvent[]> => {
         try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&is_active=eq.true&order=created_at.desc&limit=1`, { headers });
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/events?select=*&is_active=eq.true&order=created_at.desc&limit=10`, { headers });
             if (res.ok) {
                 const data = await res.json();
-                if (data && data.length > 0) {
-                    const raw = data[0];
-                    return {
-                        id: raw.id,
-                        title: raw.title,
-                        description: raw.description,
-                        imageUrl: raw.image_url,
-                        buttonText: 'Quero Ir',
-                        buttonLink: raw.button_link,
-                        isActive: raw.is_active,
-                        schedule: raw.schedule,
-                        startDate: new Date(Date.now() + 86400000).toISOString(), // Mock: Tomorrow
-                        endDate: new Date(Date.now() + 86400000 + 7200000).toISOString() // Mock: Tomorrow + 2h
-                    };
-                }
+                return (data ?? []).map((raw: any) => ({
+                    id: raw.id,
+                    title: raw.title,
+                    description: raw.description,
+                    imageUrl: raw.image_url,
+                    buttonText: 'Quero Ir',
+                    buttonLink: raw.button_link,
+                    isActive: raw.is_active,
+                    schedule: raw.schedule,
+                    startDate: new Date(Date.now() + 86400000).toISOString(),
+                    endDate: new Date(Date.now() + 86400000 + 7200000).toISOString(),
+                }));
             }
         } catch (error) {
-            console.error('Error fetching event:', error);
+            console.error('Error fetching events:', error);
         }
-        return null;
+        return [];
     },
 
     getSiteSettings: async (): Promise<SiteSettings | null> => {
